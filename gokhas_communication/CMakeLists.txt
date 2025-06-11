@@ -26,7 +26,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  communication.msg
+  ControlMessage.msg
+  JointMessage.msg
 )
 
 ## Generate added messages and services with any dependencies listed here
