@@ -1,15 +1,18 @@
 # GOKHAS Communication Package
 
-This package provides a ROS Noetic-based UART communication system. It is designed for data exchange with STM32 microcontroller via serial port.
+This package provides a ROS Noetic-based UART communication system for a robotic arm with airsoft capability. It is designed for bidirectional data exchange with STM32 microcontroller via serial port.
 
 ## Features
 
 - Bidirectional UART communication with STM32
-- Motor position and speed control
+- Trigger-based transmission (only when commands received)
+- Continuous data reception from STM32
+- Robot joint position and speed control
+- Airsoft system control and feedback
 - Real-time data exchange (100 Hz)
-- Packet-based data protocol (26 bytes)
-- ROS topic publication
-- Fault-tolerant communication
+- Compact packet-based protocol (8 bytes)
+- ROS topic-based communication
+- Fault-tolerant communication with simulation mode
 
 ## Package Structure
 
@@ -18,39 +21,30 @@ gokhas_communication/
 ├── CMakeLists.txt
 ├── package.xml
 ├── msg/
-│   └── communication.msg      # Communication message definition
+│   ├── ControlMessage.msg    # Communication and calibration control (2 bytes)
+│   └── JointMessage.msg      # Joint and airsoft control (6 bytes)
 └── scripts/
-    └── uart_com.py           # Main UART communication script
+    └── uart_com.py          # Main UART communication script
 ```
 
-## Message Structure
+## Message Structures
 
-The [`communication.msg`](msg/communication.msg) file contains the following fields:
-
+### ControlMessage.msg (2 bytes)
 ```
-# Mode States
-bool comStat    # Communication status
-bool modStat    # Mode status (Manual/Automatic)
+uint8 comStatus          # Communication status (0=inactive, 1=active)
+uint8 calibStatus        # Calibration status (0=normal, 1=calibration_mode)
+```
 
-# Receive States (from STM32)
-int16 rJ1p      # Joint 1 position
-int16 rJ1s      # Joint 1 speed
-int16 rJ2p      # Joint 2 position
-int16 rJ2s      # Joint 2 speed
-int16 rAp       # Actuator position
-bool rAt        # Actuator trigger
-
-# Transmit States (to STM32)
-int16 tJ1p      # Joint 1 position
-int16 tJ1s      # Joint 1 speed
-int16 tJ2p      # Joint 2 position
-int16 tJ2s      # Joint 2 speed
-int16 tAp       # Actuator position
-bool tAt        # Actuator trigger
-
-# Control States
-bool cJ1        # Joint 1 control
-bool cJ2        # Joint 2 control
+### JointMessage.msg (6 bytes)
+```
+uint8 control_bits      # Bit field: [bit1: airsoft_trigger, bit2: j1p_sign, bit3: j2p_sign, bit4-8: reserved]
+                        # j1p_sign: 0=positive(+), 1=negative(-)
+                        # j2p_sign: 0=positive(+), 1=negative(-)
+uint8 j1p               # Joint 1 Position (0-135, sign in control_bits)
+uint8 j1s               # Joint 1 Speed/Power (0-100 percent)
+uint8 j2p               # Joint 2 Position (0-135, sign in control_bits)  
+uint8 j2s               # Joint 2 Speed/Power (0-100 percent)
+uint8 ap                # Airsoft Power (0-100 percent)
 ```
 
 ## Installation
@@ -97,69 +91,125 @@ Hardcoded parameters defined in the script:
 - **Data Bits**: `8`
 - **Parity**: `None`
 - **Stop Bits**: `1`
-- **Timeout**: `1 second`
+- **Timeout**: `0.1 second` (non-blocking)
 - **Rate**: `100 Hz`
-- **Packet Size**: `26 bytes`
+- **Packet Size**: `8 bytes`
 
 ### Topics
 
-#### Published Topics
+#### Subscriber Topics (Commands from UI)
 
-- `/com/communication_status` ([`std_msgs/Bool`]) - Communication status
-- `/com/mode_status` ([`std_msgs/Bool`]) - Mode status
-- (Code contains `motor_pub` definition but incomplete - needs fixing)
+- `/gokhas/control_commands` ([`ControlMessage`]) - Communication and calibration commands
+- `/gokhas/joint_commands` ([`JointMessage`]) - Joint and airsoft control commands
+
+#### Publisher Topics (Feedback from STM32)
+
+- `/gokhas/control_status` ([`ControlMessage`]) - Communication and calibration status
+- `/gokhas/joint_feedback` ([`JointMessage`]) - Joint positions and airsoft feedback
+- `/gokhas/communication_active` ([`std_msgs/Bool`]) - Overall communication status
 
 ## Data Protocol
 
-Packet format: `'BBhhhhBBhhhhBBBB'` (26 bytes total)
+### Packet Format: `'BBBBBBBB'` (8 bytes total)
 
-| Byte | Description | Type |
-|------|-------------|------|
-| 0 | Communication Status | uint8 |
-| 1 | Mode Status | uint8 |
-| 2-3 | Transmit J1 Position | int16 |
-| 4-5 | Transmit J1 Speed | int16 |
-| 6-7 | Transmit J2 Position | int16 |
-| 8-9 | Transmit J2 Speed | int16 |
-| 10 | Transmit Actuator Position | uint8 |
-| 11 | Transmit Actuator Trigger | uint8 |
-| 12-13 | Receive J1 Position | int16 |
-| 14-15 | Receive J1 Speed | int16 |
-| 16-17 | Receive J2 Position | int16 |
-| 18-19 | Receive J2 Speed | int16 |
-| 20 | Receive Actuator Position | uint8 |
-| 21 | Receive Actuator Trigger | uint8 |
-| 22 | Control J1 | uint8 |
-| 23 | Control J2 | uint8 |
+| Byte | Field | Description | Range |
+|------|-------|-------------|-------|
+| 0 | comStatus | Communication status | 0-1 |
+| 1 | calibStatus | Calibration status | 0-1 |
+| 2 | control_bits | Control bit field | 0-255 |
+| 3 | j1p | Joint 1 position | 0-135 |
+| 4 | j1s | Joint 1 speed/power | 0-100 |
+| 5 | j2p | Joint 2 position | 0-135 |
+| 6 | j2s | Joint 2 speed/power | 0-100 |
+| 7 | ap | Airsoft power | 0-100 |
+
+### Control Bits Structure
+```
+Bit 1: airsoft_trigger (0=OFF, 1=ON)
+Bit 2: j1p_sign (0=positive, 1=negative)
+Bit 3: j2p_sign (0=positive, 1=negative)
+Bit 4-8: Reserved for future use
+```
+
+## Communication Flow
+
+### 1. Trigger-Based Transmission
+- Node waits for commands from UI topics
+- When command received, sets transmission flags
+- Transmits combined 8-byte packet to STM32
+- Clears flags after successful transmission
+
+### 2. Continuous Reception
+- Continuously monitors serial port for incoming data
+- Receives 8-byte packets from STM32
+- Parses and publishes data to feedback topics
+- Non-blocking operation with timeout
+
+### 3. Simulation Mode
+- Automatically activates when no serial port available
+- Echoes transmitted data as received data
+- Enables testing without hardware
 
 ## Example Usage
 
-### Reading Data from STM32
+### Sending Joint Commands
 
-```python
-# uart_com.py script automatically reads data from STM32
-# and publishes to ROS topics
+```bash
+# Publish joint command
+rostopic pub /gokhas/joint_commands gokhas_communication/JointMessage "
+control_bits: 5
+j1p: 90
+j1s: 50
+j2p: 45
+j2s: 75
+ap: 80"
 ```
 
-### Manual Command Sending
+### Sending Control Commands
 
-```python
-# cmd_vel_callback function provides example implementation
-# Converts geometry messages to motor commands
+```bash
+# Activate communication
+rostopic pub /gokhas/control_commands gokhas_communication/ControlMessage "
+comStatus: 1
+calibStatus: 0"
 ```
 
-## Known Issues and Fixes
+### Monitoring Feedback
 
-1. **Missing Publisher**: Line 116 has `motor_pub` defined but not created in `__init__` method
-   
-   ```python
-   # To be added in __init__ method:
-   self.motor_pub = rospy.Publisher('/gokhas/communication', communication, queue_size=1)
-   ```
+```bash
+# Monitor joint feedback
+rostopic echo /gokhas/joint_feedback
 
-2. **Main Function**: Line 147 has `"_main_"` written, should be `"__main__"`
+# Monitor communication status
+rostopic echo /gokhas/communication_active
+```
 
-3. **Missing Subscriber**: `cmd_vel_callback` is defined but no subscriber created
+## Control Bits Examples
+
+```
+Binary: 00000001 → Airsoft ON, J1 positive, J2 positive
+Binary: 00000010 → Airsoft OFF, J1 negative, J2 positive  
+Binary: 00000100 → Airsoft OFF, J1 positive, J2 negative
+Binary: 00000101 → Airsoft ON, J1 positive, J2 negative
+```
+
+## Architecture
+
+```
+User Interface
+     ↓ (Commands)
+ROS Topics (/gokhas/control_commands, /gokhas/joint_commands)
+     ↓
+UART Communication Node
+     ↓ (8-byte packets)
+STM32 Microcontroller
+     ↓ (Feedback packets)
+UART Communication Node
+     ↓
+ROS Topics (/gokhas/control_status, /gokhas/joint_feedback)
+     ↓ (Feedback)
+User Interface
+```
 
 ## Troubleshooting
 
@@ -174,6 +224,9 @@ ls -la /dev/ttyUSB*
 
 # Check port permissions
 sudo chmod 666 /dev/ttyUSB0
+
+# Test serial connection
+sudo minicom -D /dev/ttyUSB0 -b 9600
 ```
 
 ### ROS Node Debug
@@ -181,12 +234,31 @@ sudo chmod 666 /dev/ttyUSB0
 ```bash
 # Check node status
 rosnode list
-rosnode info /communication_node
+rosnode info /uart_communication_node
 
 # Check topics
 rostopic list
-rostopic echo /com/communication_status
+rostopic echo /gokhas/control_status
+rostopic echo /gokhas/joint_feedback
+
+# Check message definitions
+rosmsg show gokhas_communication/ControlMessage
+rosmsg show gokhas_communication/JointMessage
 ```
+
+### Common Issues
+
+1. **No Serial Port**: Node runs in simulation mode automatically
+2. **Permission Denied**: Run `sudo chmod 666 /dev/ttyUSB0`
+3. **No Data Received**: Check STM32 connection and baud rate
+4. **Communication Not Active**: Send control command with `comStatus: 1`
+
+## Performance
+
+- **Communication Rate**: 100 Hz
+- **Packet Size**: 8 bytes (highly optimized)
+- **Latency**: < 10ms typical
+- **Reliability**: Automatic error handling and recovery
 
 ## Contributing
 
@@ -202,4 +274,4 @@ This project is licensed under [GNU AGPL v3](LICENSE) license.
 
 ## Contact
 
-You can open issues for questions.
+You can open issues for questions and bug reports.
