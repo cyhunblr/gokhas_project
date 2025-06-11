@@ -1,0 +1,280 @@
+/* Genel QPushButton stili */
+QPushButton {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #ff3333 !important;
+}
+
+QPushButton:pressed {
+    background-color: #990000 !important;
+}
+
+/* Genel QToolButton stili */
+QToolButton {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QToolButton:hover {
+    background-color: #ff3333 !important;
+}
+
+QToolButton:pressed {
+    background-color: #990000 !important;
+}
+
+/* İnaktif Toggle Buton */
+.toggle-inactive {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #c03030;
+    border-radius: 5px;
+    padding: 8px;
+    font-weight: bold;
+    min-height: 40px;
+}
+
+.toggle-inactive:hover {
+    background-color: #ff3333;
+}
+
+.toggle-inactive:pressed {
+    background-color: #990000;
+}
+
+/* Aktif Toggle Buton */
+.toggle-active {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #30a030;
+    border-radius: 5px;
+    padding: 8px;
+    font-weight: bold;
+    min-height: 40px;
+}
+
+.toggle-active:hover {
+    background-color: #ff3333;
+}
+
+.toggle-active:pressed {
+    background-color: #990000;
+}
+
+/* Toggle Butonları */
+QPushButton#toggle-inactive {
+    background-color: #dc3545 !important;  /* Kırmızı - DEACTIVATED */
+    color: white !important;
+    border: 2px solid #c82333;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#toggle-inactive:hover {
+    background-color: #c82333 !important;
+    border: 2px solid #bd2130;
+}
+
+QPushButton#toggle-inactive:pressed {
+    background-color: #bd2130 !important;
+    border: 2px solid #a71e2a;
+}
+
+QPushButton#toggle-active {
+    background-color: #28a745 !important;  /* Yeşil - ACTIVATED */
+    color: white !important;
+    border: 2px solid #1e7e34;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#toggle-active:hover {
+    background-color: #1e7e34 !important;
+    border: 2px solid #155724;
+}
+
+QPushButton#toggle-active:pressed {
+    background-color: #155724 !important;
+    border: 2px solid #0f4419;
+}
+
+/* Toggle butonlarına focus olduğunda outline kaldır */
+QPushButton#toggle-inactive:focus,
+QPushButton#toggle-active:focus,
+QPushButton#toggle-waiting:focus {
+    outline: none;
+}
+
+/* Waiting durumu (sarı) - STM32 onayı bekleniyor */
+QPushButton#toggle-waiting {
+    background-color: #ffc107 !important;  /* Sarı - Waiting */
+    color: #212529 !important;             /* Koyu text sarı üzerinde */
+    border: 2px solid #e0a800;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#toggle-waiting:hover {
+    background-color: #e0a800 !important;
+    border: 2px solid #d39e00;
+}
+
+QPushButton#toggle-waiting:pressed {
+    background-color: #d39e00 !important;
+    border: 2px solid #b8860b;
+}
+
+/* MODE Toggle Butonları - MANUAL/AUTONOMOUS */
+QPushButton#mode-inactive {
+    background-color: #ffc107 !important;  /* Sarı - MANUAL */
+    color: #212529 !important;             /* Koyu text sarı üzerinde */
+    border: 2px solid #e0a800;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#mode-inactive:hover {
+    background-color: #e0a800 !important;
+    border: 2px solid #d39e00;
+}
+
+QPushButton#mode-inactive:pressed {
+    background-color: #d39e00 !important;
+    border: 2px solid #b8860b;
+}
+
+QPushButton#mode-active {
+    background-color: #007bff !important;  /* Mavi - AUTONOMOUS */
+    color: white !important;
+    border: 2px solid #0056b3;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#mode-active:hover {
+    background-color: #0056b3 !important;
+    border: 2px solid #004085;
+}
+
+QPushButton#mode-active:pressed {
+    background-color: #004085 !important;
+    border: 2px solid #002752;
+}
+
+/* Mode butonlarına focus olduğunda outline kaldır */
+QPushButton#mode-inactive:focus,
+QPushButton#mode-active:focus {
+    outline: none;
+}
+
+/* CALIBRATION Butonları */
+QPushButton#calibration-default {
+    background-color: #6c757d !important;  /* Gri - Varsayılan */
+    color: white !important;
+    border: 2px solid #5a6268;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#calibration-default:hover {
+    background-color: #5a6268 !important;
+    border: 2px solid #4e555b;
+}
+
+QPushButton#calibration-default:pressed {
+    background-color: #4e555b !important;
+    border: 2px solid #3d4347;
+}
+
+QPushButton#calibration-processing {
+    background-color: #ffc107 !important;  /* Sarı - İşlem halinde */
+    color: #212529 !important;             /* Koyu text sarı üzerinde */
+    border: 2px solid #e0a800;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#calibration-processing:hover {
+    background-color: #e0a800 !important;
+    border: 2px solid #d39e00;
+}
+
+QPushButton#calibration-processing:pressed {
+    background-color: #d39e00 !important;
+    border: 2px solid #b8860b;
+}
+
+QPushButton#calibration-completed {
+    background-color: #28a745 !important;  /* Yeşil - Tamamlandı */
+    color: white !important;
+    border: 2px solid #1e7e34;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#calibration-completed:hover {
+    background-color: #1e7e34 !important;
+    border: 2px solid #155724;
+}
+
+QPushButton#calibration-completed:pressed {
+    background-color: #155724 !important;
+    border: 2px solid #0f4419;
+}
+
+/* CALIBRATION Disabled State */
+QPushButton#calibration-disabled {
+    background-color: #6c757d !important;  /* Gri - Deaktif */
+    color: #adb5bd !important;             /* Açık gri text */
+    border: 2px solid #495057;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: normal;
+    font-size: 12px;
+    opacity: 0.6;                          /* Şeffaf görünüm */
+}
+
+QPushButton#calibration-disabled:hover {
+    background-color: #6c757d !important;  /* Hover'da değişmesin */
+    border: 2px solid #495057;
+}
+
+QPushButton#calibration-disabled:pressed {
+    background-color: #6c757d !important;  /* Basıldığında değişmesin */
+    border: 2px solid #495057;
+}
+
+/* Kalibrasyon butonlarına focus olduğunda outline kaldır */
+QPushButton#calibration-default:focus,
+QPushButton#calibration-processing:focus,
+QPushButton#calibration-completed:focus,
+QPushButton#calibration-disabled:focus {
+    outline: none;
+}

@@ -1,0 +1,103 @@
+/* Normal Tema Butonu - Transparan arka plan */
+QPushButton#theme-button-normal {
+    background-color: transparent !important;
+    border: 1px solid #cccccc;
+    border-radius: 17px;
+    font-size: 16px;
+    color: white !important;  /* Emoji her zaman beyaz */
+}
+
+QPushButton#theme-button-normal:hover {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid #999999;
+    color: white !important;  /* Hover'da da beyaz */
+}
+
+QPushButton#theme-button-normal:pressed {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid #666666;
+    color: white !important;  /* Pressed'de de beyaz */
+}
+
+/* Aktif Tema Butonu - MAVİ ARKA PLAN */
+QPushButton#theme-button-active {
+    background-color: #0078d4 !important;  /* Mavi arka plan */
+    color: white !important;               /* Beyaz emoji/text */
+    border: 2px solid #005a9e !important;
+    border-radius: 17px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+QPushButton#theme-button-active:hover {
+    background-color: #106ebe !important;  /* Daha açık mavi hover */
+    border: 2px solid #005a9e !important;
+    color: white !important;  /* Hover'da da beyaz */
+}
+
+QPushButton#theme-button-active:pressed {
+    background-color: #005a9e !important;  /* Koyu mavi pressed */
+    border: 2px solid #003d6b !important;
+    color: white !important;  /* Pressed'de de beyaz */
+}
+
+/* TEMA BUTONLARI İÇİN ÖZEL OVERRIDE - GLOBAL TEMA STİLLERİNİ EZER */
+QPushButton#theme-button-normal,
+QPushButton#theme-button-active {
+    color: white !important;  /* Emoji'ler her zaman beyaz */
+}
+
+QPushButton#theme-button-normal:hover,
+QPushButton#theme-button-active:hover,
+QPushButton#theme-button-normal:pressed,
+QPushButton#theme-button-active:pressed {
+    color: white !important;  /* Tüm durumlar için beyaz */
+}
+
+/* Genel QPushButton stili - diğer butonlar için */
+QPushButton {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #ff3333 !important;
+}
+
+QPushButton:pressed {
+    background-color: #990000 !important;
+}
+
+/* Light theme sonuna ekleyin */
+
+/* Tema butonları override - emoji'ler her zaman beyaz */
+QPushButton#theme-button-normal,
+QPushButton#theme-button-active {
+    color: white !important;
+}
+
+QPushButton#theme-button-normal:hover,
+QPushButton#theme-button-active:hover,
+QPushButton#theme-button-normal:pressed,
+QPushButton#theme-button-active:pressed {
+    color: white !important;
+}
+
+/* Dark theme sonuna ekleyin */
+
+/* Tema butonları override - emoji'ler her zaman beyaz */
+QPushButton#theme-button-normal,
+QPushButton#theme-button-active {
+    color: white !important;
+}
+
+QPushButton#theme-button-normal:hover,
+QPushButton#theme-button-active:hover,
+QPushButton#theme-button-normal:pressed,
+QPushButton#theme-button-active:pressed {
+    color: white !important;
+}

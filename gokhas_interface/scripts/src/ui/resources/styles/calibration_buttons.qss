@@ -1,0 +1,81 @@
+/* Varsayılan Kalibrasyon Butonu */
+.calibration-default {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+.calibration-default:hover {
+    background-color: #ff3333;
+}
+
+.calibration-default:pressed {
+    background-color: #990000;
+}
+
+/* Sarı (İşlem Yapılıyor) */
+.calibration-processing {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #bba100;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+.calibration-processing:hover {
+    background-color: #ff3333;
+}
+
+/* Yeşil (Tamamlandı) */
+.calibration-completed {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #339933;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+.calibration-completed:hover {
+    background-color: #ff3333;
+}
+
+/* Genel QPushButton stili */
+QPushButton {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #ff3333 !important;
+}
+
+QPushButton:pressed {
+    background-color: #990000 !important;
+}
+
+/* Genel QToolButton stili */
+QToolButton {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QToolButton:hover {
+    background-color: #ff3333 !important;
+}
+
+QToolButton:pressed {
+    background-color: #990000 !important;
+}

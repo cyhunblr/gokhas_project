@@ -1,0 +1,17 @@
+/* Başlık Label'ları */
+.header-label {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* Tema Label'ı */
+.theme-label {
+    font-weight: bold;
+    font-size: 12px;
+    margin: 5px 0;
+}
+
+/* Panel Kenarlıkları */
+.panel-border {
+    border: 2px solid red;
+}

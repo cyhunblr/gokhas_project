@@ -1,0 +1,373 @@
+QMainWindow {
+    background-color: #ffffff;
+    color: #333333;
+}
+
+QPushButton {
+    background-color: #ff0000 !important;
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    padding: 8px;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #ff3333;
+    border: 1px solid #aaaaaa;
+}
+
+QPushButton:pressed {
+    background-color: #990000;
+    border: 1px solid #999999;
+}
+
+QLabel {
+    color: #333333;
+    background-color: transparent;
+}
+
+QCheckBox {
+    color: #333333;
+    spacing: 5px;
+}
+
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #cccccc;
+    border-radius: 3px;
+    background-color: #ffffff;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0078d4;
+    border: 2px solid #005a9e;
+}
+
+QSlider::groove:horizontal {
+    border: 1px solid #cccccc;
+    background: #f0f0f0;
+    height: 8px;
+    border-radius: 4px;
+}
+
+QSlider::handle:horizontal {
+    background: #0078d4;
+    border: 1px solid #005a9e;
+    width: 18px;
+    margin: -5px 0;
+    border-radius: 9px;
+}
+
+QFrame {
+    border: none;
+    background-color: #fafafa;
+}
+
+/* Control grup stilleri - light tema */
+QFrame#control-group {
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    padding: 5px;
+    background-color: transparent;
+}
+
+/* Control grup içindeki tüm widget'ların border'ını kaldır */
+QFrame#control-group * {
+    border: none;
+}
+
+/* Control grup içindeki label'lar için özel stil */
+QFrame#control-group QLabel {
+    background-color: transparent;
+    padding: 2px;
+}
+
+/* Control grup içindeki slider'lar için özel stil */
+QFrame#control-group QSlider {
+    background: transparent;
+}
+
+/* Deaktif slider stilleri - light tema */
+QFrame#control-group QSlider:disabled {
+    background: transparent;
+}
+
+QFrame#control-group QSlider::groove:horizontal:disabled {
+    border: 1px solid #d0d0d0;
+    background: #f0f0f0;
+    height: 8px;
+    border-radius: 4px;
+}
+
+QFrame#control-group QSlider::handle:horizontal:disabled {
+    background: #d0d0d0;
+    border: 1px solid #b0b0b0;
+    width: 18px;
+    margin: -5px 0;
+    border-radius: 9px;
+}
+
+/* Özel QWidget stilleri */
+QWidget {
+    background-color: #ffffff;
+    color: #333333;
+}
+
+/* Ek UI bileşenleri için açık tema stilleri */
+QSlider::groove:vertical {
+    border: 1px solid #cccccc;
+    background: #f0f0f0;
+    width: 8px;
+    border-radius: 4px;
+}
+
+QSlider::handle:vertical {
+    background: #0078d4;
+    border: 1px solid #005a9e;
+    height: 18px;
+    margin: 0 -5px;
+    border-radius: 9px;
+}
+
+QToolButton {
+    background-color: #ff0000 !important;
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    padding: 6px;
+    color: #ffffff;
+}
+
+QToolButton:hover {
+    background-color: #ff3333;
+}
+
+QToolButton:pressed {
+    background-color: #990000;
+}
+
+/* Scroll bar stilleri */
+QScrollBar:vertical {
+    background: #f0f0f0;
+    width: 12px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical {
+    background: #cccccc;
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #aaaaaa;
+}
+
+/* Tüm yazıların siyah olması için ek stil tanımları */
+QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 3px;
+    padding: 5px;
+    color: #333333;
+}
+
+QTextEdit, QPlainTextEdit {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    color: #333333;
+}
+
+QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 3px;
+    padding: 5px;
+    color: #333333;
+}
+
+QComboBox::drop-down {
+    border: none;
+    background-color: #f0f0f0;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #333333;
+    selection-background-color: #0078d4;
+    selection-color: #ffffff;
+}
+
+QListWidget, QTreeWidget, QTableWidget {
+    background-color: #ffffff;
+    color: #333333;
+    border: 1px solid #cccccc;
+}
+
+QHeaderView::section {
+    background-color: #f0f0f0;
+    color: #333333;
+    border: 1px solid #cccccc;
+    padding: 4px;
+}
+
+QTabWidget::pane {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+}
+
+QTabBar::tab {
+    background-color: #f0f0f0;
+    color: #333333;
+    padding: 8px;
+    border: 1px solid #cccccc;
+}
+
+QTabBar::tab:selected {
+    background-color: #0078d4;
+    color: #ffffff;
+}
+
+QMenuBar {
+    background-color: #ffffff;
+    color: #333333;
+}
+
+QMenuBar::item:selected {
+    background-color: #0078d4;
+    color: #ffffff;
+}
+
+QMenu {
+    background-color: #ffffff;
+    color: #333333;
+    border: 1px solid #cccccc;
+}
+
+QMenu::item:selected {
+    background-color: #0078d4;
+    color: #ffffff;
+}
+
+QStatusBar {
+    background-color: #ffffff;
+    color: #333333;
+}
+
+QGroupBox {
+    color: #333333;
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    margin-top: 10px;
+    padding-top: 5px;
+}
+
+QGroupBox::title {
+    color: #333333;
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 5px 0 5px;
+}
+
+QSpinBox, QDoubleSpinBox {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 3px;
+    padding: 5px;
+    color: #333333;
+}
+
+QProgressBar {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 3px;
+    color: #333333;
+    text-align: center;
+}
+
+QProgressBar::chunk {
+    background-color: #0078d4;
+    border-radius: 2px;
+}
+
+/* Border button için özel override - light tema */
+QPushButton#border-button-normal {
+    background-color: transparent !important;
+    border: 1px solid #cccccc !important;
+    border-radius: 17px !important;
+    color: #333333 !important;
+    font-size: 16px !important;
+}
+
+QPushButton#border-button-active {
+    background-color: #0078d4 !important;
+    border: 2px solid #005a9e !important;
+    border-radius: 17px !important;
+    color: white !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
+}
+
+/* Joint button'lar için border-radius */
+QPushButton#joint-button {
+    border-radius: 8px;
+    background-color: #e0e0e0;
+    border: 1px solid #cccccc;
+    color: #333333;
+}
+
+QPushButton#joint-button:hover {
+    background-color: #d0d0d0;
+}
+
+/* Aktif joint button - yeşil */
+QPushButton#joint-button-active {
+    border-radius: 8px;
+    background-color: #28a745;  /* Yeşil */
+    color: white;
+    border: 1px solid #1e7e34;
+    font-weight: bold;
+}
+
+QPushButton#joint-button-active:hover {
+    background-color: #218838;  /* Koyu yeşil */
+}
+
+/* Deaktif joint button - kırmızı (başlangıç durumu) */
+QPushButton#joint-button-inactive {
+    border-radius: 8px;
+    background-color: #dc3545;  /* Kırmızı */
+    color: white;
+    border: 1px solid #c82333;
+    font-weight: bold;
+}
+
+QPushButton#joint-button-inactive:hover {
+    background-color: #c82333;  /* Koyu kırmızı */
+}
+
+/* Üçgen arrow butonları için stil */
+QPushButton#arrow-button {
+    background-color: #e0e0e0;
+    border: 1px solid #cccccc;
+    border-radius: 12px;
+    color: #333333;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+QPushButton#arrow-button:hover {
+    background-color: #d0d0d0;
+    border-color: #b0b0b0;
+}
+
+QPushButton#arrow-button:pressed {
+    background-color: #c0c0c0;
+}
+
+QPushButton#arrow-button:disabled {
+    background-color: #f0f0f0;
+    border-color: #e0e0e0;
+    color: #cccccc;
+}

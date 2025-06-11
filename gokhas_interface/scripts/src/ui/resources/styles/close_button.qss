@@ -1,0 +1,57 @@
+/* Genel QPushButton stili */
+QPushButton {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #ff3333 !important;
+}
+
+QPushButton:pressed {
+    background-color: #990000 !important;
+}
+
+/* Kapatma Butonu - Transparan arka plan, border yok */
+QPushButton#close-button {
+    background-color: transparent !important;  /* Transparan arka plan */
+    border: none !important;                   /* Border kaldırıldı */
+    border-radius: 75px;                       /* Yuvarlak shape */
+    color: #dc3545;                            /* Kırmızı icon rengi */
+    font-weight: bold;
+    padding: 10px;
+}
+
+QPushButton#close-button:hover {
+    background-color: rgba(220, 53, 69, 0.1) !important;  /* Hafif kırmızı şeffaf */
+    border: none !important;                               /* Border kaldırıldı */
+    color: #c82333;
+}
+
+QPushButton#close-button:pressed {
+    background-color: rgba(220, 53, 69, 0.2) !important;  /* Daha koyu şeffaf */
+    border: none !important;                               /* Border kaldırıldı */
+    color: #bd2130;
+}
+
+/* Close button'a focus olduğunda outline kaldır */
+QPushButton#close-button:focus {
+    outline: none;
+}
+
+/* Border debug modu aktifken close button için border */
+[data-border="true"] QPushButton#close-button {
+    border: 3px solid #dc3545 !important;     /* Sadece debug modunda border */
+}
+
+[data-border="true"] QPushButton#close-button:hover {
+    border: 3px solid #c82333 !important;
+}
+
+[data-border="true"] QPushButton#close-button:pressed {
+    border: 3px solid #bd2130 !important;
+}

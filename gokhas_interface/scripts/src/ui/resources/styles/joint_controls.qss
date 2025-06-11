@@ -1,0 +1,42 @@
+/* Genel QPushButton stili */
+QPushButton {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #ff3333 !important;
+}
+
+QPushButton:pressed {
+    background-color: #990000 !important;
+}
+
+/* Joint Buton Stili */
+.joint-button {
+    background-color: #ff0000 !important;
+    color: white;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+.joint-button:hover {
+    background-color: #ff3333;
+}
+
+.joint-button:pressed {
+    background-color: #990000;
+}
+
+/* Label Stili */
+.joint-label {
+    font-weight: bold;
+}
+
+/* Slider Stilleri zaten genel temalarda var */

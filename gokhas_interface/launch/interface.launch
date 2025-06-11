@@ -1,0 +1,12 @@
+<launch>
+
+    <!-- GokHAS Interface Launch -->
+    <node pkg="gokhas_interface" type="launch_interface.py" name="qt_interface_node" output="screen" required="true"/>
+
+    <!-- ZED M Camera Launch -->
+    <!-- <include file="$(find zed_wrapper)/launch/zedm.launch"/> -->
+
+    <!-- Ultralyics YOLOv8 Launch -->
+    <include file="$(find gokhas_perception)/launch/tracker.launch"/>
+    
+</launch>

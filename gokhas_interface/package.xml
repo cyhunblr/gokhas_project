@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>gokhas_interface</name>
+  <version>1.0.0</version>
+  <description>PyQt6-based GUI interface for GokHAS robotics control system with camera feed and manual/autonomous control modes</description>
+
+  <maintainer email="ahmetceyhunbilir16@gmail.com">Ahmet Ceyhun Bilir</maintainer>
+  <license>MIT</license>
+  <author email="ahmetceyhunbilir16@gmail.com">Ahmet Ceyhun Bilir</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  
+  <!-- ROS dependencies -->
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>gokhas_communication</build_depend>
+  <build_depend>gokhas_perception</build_depend>
+  
+  <build_export_depend>rospy</build_export_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_export_depend>geometry_msgs</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>gokhas_communication</build_export_depend>
+  <build_export_depend>gokhas_perception</build_export_depend>
+  
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>gokhas_communication</exec_depend>
+  <exec_depend>gokhas_perception</exec_depend>
+
+  <!-- Python GUI dependencies -->
+  <exec_depend>python3-pyqt6</exec_depend>
+  <exec_depend>python3-pyqt6.qtcore</exec_depend>
+  <exec_depend>python3-pyqt6.qtgui</exec_depend>
+  <exec_depend>python3-pyqt6.qtwidgets</exec_depend>
+  
+  <!-- Computer vision dependencies -->
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-cv-bridge</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  
+  <!-- ROS Python dependencies -->
+  <exec_depend>python3-rospy</exec_depend>
+  <exec_depend>python3-rosnode</exec_depend>
+
+  <export>
+    <!-- Specify that this is a GUI package -->
+    <architecture_independent/>
+  </export>
+</package>

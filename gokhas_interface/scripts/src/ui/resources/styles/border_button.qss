@@ -1,0 +1,28 @@
+/* Border button stilleri - Normal durumda */
+QPushButton#border-button-normal {
+    background-color: transparent !important;
+    border-radius: 17px !important;
+    font-size: 16px !important;
+}
+
+/* Border button stilleri - Aktif durumda */
+QPushButton#border-button-active {
+    background-color: #0078d4 !important;
+    border: 2px solid #005a9e !important;
+    border-radius: 17px !important;
+    color: white !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
+}
+
+/* Light tema için border button stilleri */
+[data-theme="light"] QPushButton#border-button-normal {
+    border: 1px solid #cccccc !important;
+    color: #333333 !important;
+}
+
+/* Dark tema için border button stilleri */
+[data-theme="dark"] QPushButton#border-button-normal {
+    border: 1px solid #606060 !important;
+    color: #ffffff !important;
+}
