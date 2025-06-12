@@ -35,6 +35,11 @@ add_message_files(
   Detection2DArray.msg
 )
 
+add_service_files(
+  FILES
+  PixelTo3D.srv
+)
+
 generate_messages(
   DEPENDENCIES
   sensor_msgs

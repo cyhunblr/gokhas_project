@@ -260,6 +260,9 @@ rosmsg show gokhas_communication/JointMessage
 - **Latency**: < 10ms typical
 - **Reliability**: Automatic error handling and recovery
 
+## TODO
+[ ] CRC implementation
+
 ## Contributing
 
 1. Fork the repository

@@ -116,14 +116,17 @@ class CommunicationClass:
                     self.pending_joint.ap
                 )
                 
-                self.serialPort.write(packet_data)
-                self.serialPort.flush()
-                
-                rospy.loginfo(f"Transmitted {len(packet_data)} bytes to STM32")
-                
-                # Clear flags
-                self.transmit_control_flag = False
-                self.transmit_joint_flag = False
+                if self.serialPort is not None:
+                    self.serialPort.write(packet_data)
+                    self.serialPort.flush()
+                    
+                    rospy.loginfo(f"Transmitted {len(packet_data)} bytes to STM32")
+                    
+                    # Clear flags
+                    self.transmit_control_flag = False
+                    self.transmit_joint_flag = False
+                else:
+                    rospy.logwarn("Serial port is None, cannot transmit data")
                 
             except Exception as e:
                 rospy.logerr(f"Transmit error: {e}")
@@ -135,7 +138,7 @@ class CommunicationClass:
 
         try:
             # Check if data is available
-            if self.serialPort.in_waiting >= self.packet_size:
+            if self.serialPort and self.serialPort.in_waiting >= self.packet_size:
                 data = self.serialPort.read(self.packet_size)
                 
                 if len(data) == self.packet_size:

@@ -9,6 +9,7 @@ import numpy as np
 import math
 from sensor_msgs.msg import PointCloud2, PointField
 from gokhas_perception.msg import YoloResult
+from gokhas_perception.srv import PixelTo3D, PixelTo3DResponse
 import sensor_msgs.point_cloud2 as pc2
 from std_msgs.msg import Header
 
@@ -41,13 +42,88 @@ class YoloTo3DDetector:
             self.detected_point_pub = None
             rospy.loginfo("DEBUG mode disabled - Point cloud publishing deactivated")
         
-        # Store latest point cloud data
+        # Store latest point cloud data and YOLO detection
         self.latest_pointcloud = None
+        self.latest_yolo_detection = None
+        
+        # Create service
+        self.pixel_to_3d_service = rospy.Service(
+            'pixel_to_3d_angles',
+            PixelTo3D,
+            self.handle_pixel_to_3d_request
+        )
+        
         rospy.loginfo("YoloTo3DDetector initialized")
+        rospy.loginfo("Service 'pixel_to_3d_angles' is now available")
 
     def pointcloud_callback(self, msg):
         """Store the latest point cloud data"""
         self.latest_pointcloud = msg
+    
+    def handle_pixel_to_3d_request(self, req):
+        """Handle service request"""
+        response = PixelTo3DResponse()
+        
+        if self.latest_pointcloud is None:
+            rospy.logwarn("No point cloud data available to process service request")
+            # Return zeros for failure
+            response.joint1degree = 0
+            response.joint2degree = 0
+            return response
+        
+        # CASE 1: Autonomous mode - use YOLO detection
+        if req.autonomous:
+            if self.latest_yolo_detection is None or len(self.latest_yolo_detection.detections.detections) == 0:
+                rospy.logwarn("No YOLO detection available for autonomous mode")
+                response.joint1degree = 0
+                response.joint2degree = 0
+                return response
+                
+            # Use latest YOLO detection
+            first_detection = self.latest_yolo_detection.detections.detections[0]
+            bbox = first_detection.bbox
+            center_x = int(bbox.center.x)
+            center_y = int(bbox.center.y)
+    
+        # CASE 2: Manual mode - use provided pixel coordinates
+        else:
+            center_x = req.pixel_x
+            center_y = req.pixel_y
+        
+        # Get 3D point at coordinates
+        point_3d = self.get_3d_point_at_pixel(center_x, center_y)
+        
+        if point_3d is not None:
+            # Calculate angles from 3D coordinates
+            h_angle, v_angle = self.calculate_angles_3d(point_3d)
+            
+            # Convert angles to int16 (keeping the original sign)
+            # int16 range is -32768 to 32767 which is more than enough for our angles
+            joint1degree = int(round(h_angle))
+            joint2degree = int(round(v_angle))
+            
+            response.joint1degree = joint1degree
+            response.joint2degree = joint2degree
+            
+            # Log for debugging
+            rospy.loginfo(f"Service request: autonomous={req.autonomous}")
+            if req.autonomous:
+                rospy.loginfo(f"Using YOLO detection at ({center_x}, {center_y})")
+            else:
+                rospy.loginfo(f"Using provided pixel coordinates ({center_x}, {center_y})")
+            
+            rospy.loginfo(f"Joint angles - joint1: {joint1degree}, joint2: {joint2degree}")
+            
+            # Debug visualization (if enabled)
+            if DEBUG:
+                self.publish_detected_point(point_3d)
+                
+            return response
+        else:
+            rospy.logwarn("No valid 3D point found at the specified pixel coordinates")
+            response.joint1degree = 0
+            response.joint2degree = 0
+            return response
     
     def get_3d_point_at_pixel(self, u, v):
         """Get 3D point at specific pixel coordinates from organized point cloud"""
@@ -72,8 +148,8 @@ class YoloTo3DDetector:
         """Calculate horizontal and vertical angles using 3D coordinates"""
         x, y, z = point_3d
         
-        # ZED koordinat sistemi: X ileri, Y sola, Z yukarı
-        # Horizontal angle: atan2(-y, x) where x is forward, -y is right (pozitif sağ)
+        # ZED coordinate system: X forward, Y to the left, Z upward
+        # Horizontal angle: atan2(-y, x) where x is forward, -y is right 
         # Negative y = right side = positive angle
         horizontal_angle_rad = math.atan2(-y, abs(x))
         horizontal_angle_deg = math.degrees(horizontal_angle_rad)
@@ -121,6 +197,8 @@ class YoloTo3DDetector:
     
     def yolo_callback(self, msg):
         """Process YOLO detection and convert to 3D"""
+        # Store latest YOLO detection for service use
+        self.latest_yolo_detection = msg
         
         if self.latest_pointcloud is None:
             rospy.logwarn("No point cloud data available")
@@ -143,9 +221,9 @@ class YoloTo3DDetector:
         if point_3d is not None:
             x, y, z = point_3d
             
-            # ZED koordinat sistemi: X ileri, Y sola, Z yukarı
+            # ZED coordinate system: X forward, Y to the left, Z upward
             euclidean_distance = np.sqrt(x*x + y*y + z*z)
-            forward_distance = abs(x)  # İleri mesafe
+            forward_distance = abs(x)  # forward distance is the absolute value of x
             
             # Calculate angles from 3D coordinates
             h_angle, v_angle = self.calculate_angles_3d(point_3d)
