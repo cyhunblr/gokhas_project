@@ -37,8 +37,8 @@ class CommunicationClass:
                 stopbits=1,
                 timeout=0.1  # Short timeout for non-blocking receive
             )
-            self.serialPort.flushInput()
-            self.serialPort.flushOutput()
+            self.serialPort.reset_input_buffer()
+            self.serialPort.reset_output_buffer()
             rospy.loginfo("Serial port opened successfully")
             self.serial_available = True
         except Exception as e:
