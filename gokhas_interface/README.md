@@ -1,66 +1,127 @@
 # GokHAS Interface
 
-This Python & Qt6-based GUI simplifies interaction with ROS Noetic systems.  
-Through a visual interface, you can manage **joint** and **effector** controls in manual or autonomous modes, perform calibration steps, and view real-time camera feed with advanced styling and theme support.
+This advanced PyQt6-based GUI provides comprehensive control and monitoring for the GokHAS robotic turret system. Features include real-time STM32 communication, intelligent calibration system, and seamless ROS integration for both simulation and hardware modes.
+
+## 🚀 Latest Features (2025)
+
+### Enhanced Calibration System
+- **STM32 Response-Based Calibration**: No more fixed timers - waits for actual hardware confirmation
+- **Intelligent Timeout Handling**: 15-second timeout with graceful error handling
+- **Visual State Management**: 
+  - 🔴 Default (Ready) → 🟡 Processing (Pulsing) → 🟢 Completed (Success)
+  - ⚠️ Timeout (Returns to Default with error message)
+- **Concurrent Protection**: Prevents multiple simultaneous calibrations
+
+### Advanced Communication
+- **Bidirectional UART**: Real-time communication with STM32 microcontroller
+- **Simulation Mode**: Complete testing environment without hardware
+- **Error Recovery**: Automatic reconnection and fault tolerance
+- **Message Validation**: Robust protocol with status confirmation
+
+### Configuration Management
+- **Centralized Parameters**: All settings in `config/params.yaml`
+- **Dynamic Loading**: ROS parameter integration with live updates
+- **Mode Switching**: Easy simulation/hardware mode toggle
 
 ## Features
 
 - **Real-Time Video Display**  
-  Subscribes to YOLOv8 processed video from `/yolov8/image_raw` ROS topic and displays incoming frames
+  Subscribes to YOLOv8 processed video from `/yolov8/image_raw` ROS topic with detection overlays
   
-- **Manual Joint & Effector Control**  
-  - Adjustable **Position** sliders (–135° to +135°) and **Power** sliders (0% to 100%) for each joint  
-  - Individual control buttons for `Joint1`, `Joint2`, and `Effector`
-  - Real-time slider value display and ROS topic integration
+- **Intelligent Joint & Effector Control**  
+  - Precision **Position** control (–135° to +135°) and **Power** management (0% to 100%)
+  - Individual activation buttons for `Joint1`, `Joint2`, and `Effector`
+  - Real-time value display with instant ROS topic publishing
+  - State-aware control locking during calibration
   
 - **System Status Management**  
-  - **ACTIVATION Toggle**: DEACTIVATED ↔ ACTIVATED (Red/Green)
-  - **MODE Toggle**: MANUAL ↔ AUTONOMOUS (Yellow/Blue)
-  - Status-based color coding for visual feedback
+  - **ACTIVATION Toggle**: DEACTIVATED ↔ ACTIVATED with STM32 confirmation
+  - **MODE Toggle**: MANUAL ↔ AUTONOMOUS with control state management
+  - Visual feedback with color-coded status indicators
   
-- **Advanced Calibration System**  
-  - Dedicated calibration buttons for each joint
-  - Visual feedback: Default (Gray) → Processing (Yellow/Pulsing) → Completed (Green)
-  - Prevention of simultaneous calibrations with button locking
-  - 5-second calibration process simulation
+- **Next-Generation Calibration System**  
+  - **Hardware-Synchronized**: Waits for STM32 `calibStatus: 1` confirmation
+  - **Timeout Protection**: 15-second timeout prevents infinite waiting
+  - **Visual Feedback**: Pulsing yellow animation during processing
+  - **Error Handling**: Graceful recovery from communication failures
+  - **State Locking**: Prevents conflicts during calibration process
   
-- **Theme System**  
-  - **Light Theme** and **Dark Theme** support
-  - Dynamic theme switching with visual button indicators
-  - Comprehensive styling with CSS-like QSS files
-  - Theme-aware UI components
+- **Advanced Theme System**  
+  - **Light/Dark Themes**: Professional styling with dynamic switching
+  - **Responsive Design**: Auto-adapting layouts and component sizing
+  - **Theme Persistence**: Remembers user preferences
   
-- **Advanced UI Features**  
-  - **LOG Panel**: Terminal-style logging with timestamps
-  - **Help System**: Context-sensitive help with question mark button
-  - **Responsive Design**: Auto-adjusting layouts and height synchronization
-  - **Border Toggle**: Debug borders for development
-  
-- **ROS Integration**  
-  - ROS Bridge for seamless topic/service communication
-  - Connection monitoring and status reporting
-  - Safe shutdown handling and resource cleanup
+- **Professional UI Features**  
+  - **Enhanced LOG Panel**: Timestamped entries with categorized messages
+  - **Context Help**: Interactive help system with tooltips
+  - **Debug Tools**: Border toggle and performance monitoring
+  - **Resource Management**: Efficient memory usage and cleanup
 
 ## Installation
 
-1. Ensure Python 3 and ROS Noetic are installed.  
-2. Install required Python packages:  
+1. **Prerequisites:**
    ```bash
-   pip install PyQt6 rospkg opencv-python
-   ```  
-3. Build the ROS package:  
+   # Ensure ROS Noetic is installed
+   sudo apt-get update
+   sudo apt-get install ros-noetic-desktop-full
+   
+   # Install Python dependencies
+   sudo apt-get install python3-pyqt6 python3-pyqt6.qtcore python3-pyqt6.qtgui python3-pyqt6.qtwidgets
+   pip3 install pyserial opencv-python rospkg
+   ```
+
+2. **Build the workspace:**
    ```bash
    cd ~/bitirme_ws
-   catkin build
+   catkin build gokhas_interface
    source devel/setup.bash
    ```
 
+## Configuration
+
+The system uses a centralized configuration file: `config/params.yaml`
+
+### Key Parameters:
+
+```yaml
+# STM32 Communication
+stm32:
+  simulation_mode: false          # Toggle hardware/simulation mode
+  serial_port: "/dev/ttyUSB0"     # Hardware serial port
+  baud_rate: 9600                 # Communication speed
+  timeout: 1.0                    # Serial timeout
+
+# System Timing
+system:
+  activation_timeout: 5000        # STM32 activation timeout (ms)
+  calibration_timeout: 15000      # Calibration response timeout (ms)
+  simulation_response_delay: 1000 # Simulation delay (ms)
+
+# Joint Control
+joints:
+  position_range:
+    min: -135                     # Minimum joint angle (degrees)
+    max: 135                      # Maximum joint angle (degrees)
+  power_range:
+    min: 0                        # Minimum power (%)
+    max: 100                      # Maximum power (%)
+```
+
 ## Usage
 
-Launch the interface and connect to all necessary ROS topics with:
-
+### Basic Launch
 ```bash
-roslaunch gokhas_interface interface.launch
+# Standard launch with hardware
+roslaunch gokhas_interface gokhas_interface.launch
+
+# Simulation mode (no hardware required)
+roslaunch gokhas_interface gokhas_interface.launch simulation:=true
+```
+
+### Testing Calibration System
+```bash
+# Test calibration timeout functionality
+rosrun gokhas_interface test_calibration_timeout.py
 ```
 
 ### Interface Guide

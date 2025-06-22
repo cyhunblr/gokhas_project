@@ -2,13 +2,19 @@
 
 GokHAS was developed as an undergraduate capstone project, featuring a custom two-axis turret integrated with an Airsoft system. A GUI-based centralized management interface provides a robust software architecture for target acquisition and engagement. On the embedded side, an STM32 microcontroller handles real-time control and telemetry over UART communication. This end-to-end design demonstrates seamless coordination between high-level command software and low-level embedded hardware.
 
+**Latest Updates (2025):**
+- ✅ **Enhanced Calibration System**: Real-time STM32 response-based calibration with timeout handling
+- ✅ **Improved Communication**: Robust bidirectional UART communication with error handling
+- ✅ **Advanced UI Controls**: Dynamic button states and visual feedback system
+- ✅ **Configuration Management**: Centralized parameter system with ROS integration
+
 ## Project Overview
 
 The GokHAS system consists of three main ROS packages:
 
-- **[gokhas_perception](gokhas_perception/)** - Computer vision and perception stack for target detection and tracking
-- **[gokhas_communication](gokhas_communication/)** - Communication interface between embedded systems and ROS
-- **[gokhas_interface](gokhas_interface/)** - PyQt6-based GUI for system control and monitoring
+- **[gokhas_perception](gokhas_perception/)** - Computer vision and perception stack for target detection and tracking using YOLOv8
+- **[gokhas_communication](gokhas_communication/)** - Bidirectional UART communication interface with STM32 microcontroller
+- **[gokhas_interface](gokhas_interface/)** - Advanced PyQt6-based GUI with real-time calibration and control system
 
 ## System Architecture
 
@@ -98,17 +104,23 @@ source ~/catkin_ws/devel/setup.bash
 **Purpose:** Computer vision and perception stack for target detection and tracking
 
 **Key Features:**
-- YOLO-based object detection
-- 3D point cloud processing
-- Target tracking and filtering
+- YOLOv8-based object detection and segmentation
+- Real-time 3D point cloud processing
+- Advanced target tracking with multiple algorithms
+- 2D/3D bounding box generation
 - Custom message types for detection data
+
+**Nodes:**
+- `tracker_node` - Real-time 2D object detection and tracking
+- `tracker_with_cloud_node` - 3D object detection with LiDAR integration
 
 **Custom Messages:**
 - `Detection2D` - 2D bounding box detection
 - `Detection2DArray` - Array of 2D detections
-- `YoloResult` - YOLO detection results
+- `YoloResult` - YOLO detection results with segmentation masks
 
 **Dependencies:**
+- Ultralytics YOLO models
 - OpenCV (cv_bridge)
 - PCL (pcl_ros)
 - Image processing (image_transport, image_geometry)
@@ -116,33 +128,63 @@ source ~/catkin_ws/devel/setup.bash
 
 ### gokhas_communication
 
-**Purpose:** Communication interface between embedded systems and ROS
+**Purpose:** Bidirectional UART communication interface with STM32 microcontroller
 
 **Key Features:**
-- UART communication with STM32
-- Message conversion between ROS and embedded protocols
-- Real-time data exchange
-- Error handling and reconnection logic
+- Real-time UART communication (100 Hz)
+- Compact 8-byte packet protocol
+- Trigger-based transmission system
+- Joint position and speed control
+- Airsoft system control and feedback
+- Simulation mode for testing
+- Fault-tolerant communication with error handling
+
+**Message Types:**
+- `ControlMessage` - Communication and calibration control (2 bytes)
+- `JointMessage` - Joint and airsoft control (6 bytes)
+
+**Topics:**
+- `/control_topic` - Control and calibration commands
+- `/joint_command_topic` - Joint movement commands
 
 **Dependencies:**
+- Python serial library
 - ROS Python (rospy)
-- Standard messages (std_msgs)
 - Custom message generation
 
 ### gokhas_interface
 
-**Purpose:** PyQt6-based GUI for system control and monitoring
+**Purpose:** Advanced PyQt6-based GUI with real-time calibration and control system
 
 **Key Features:**
-- Real-time camera feed display
-- Manual/autonomous control modes
-- System status monitoring
-- Target visualization
-- Control parameter adjustment
+- **Enhanced Calibration System:**
+  - STM32 response-based calibration (no fixed timers)
+  - Visual feedback: Default → Processing (Yellow/Pulsing) → Completed (Green)
+  - Timeout handling (15s) for non-responsive hardware
+  - Prevention of simultaneous calibrations
+- **Real-time Control:**
+  - Manual/autonomous mode switching
+  - Individual joint control with position (-135° to +135°) and power (0-100%)
+  - Live camera feed display with YOLOv8 detection overlay
+- **Advanced UI:**
+  - Dynamic theme system (Light/Dark)
+  - Comprehensive logging panel with timestamps
+  - Configuration management via ROS parameters
+  - Responsive design with status-based color coding
+- **Communication:**
+  - ROS Bridge for seamless topic integration
+  - Connection monitoring and status reporting
+  - Safe shutdown with resource cleanup
+
+**Configuration:**
+- Centralized parameter system in `config/params.yaml`
+- Simulation/real hardware mode switching
+- Configurable timeouts and delays
 
 **Dependencies:**
 - PyQt6 framework
 - ROS integration (rospy)
+- OpenCV for image processing
 - Image processing for display
 - Custom message handling
 
