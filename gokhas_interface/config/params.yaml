@@ -1,0 +1,51 @@
+# GokHAS Interface Configuration Parameters
+# This file contains system-wide configuration parameters for the GokHAS interface
+
+# STM32 Communication Settings
+stm32:
+  # Simulation mode - if true, STM32 responses are simulated
+  # if false, real hardware communication is used
+  simulation_mode: false
+  
+  # Serial port for real STM32 communication
+  # Used only when simulation_mode is false
+  # Common values: /dev/ttyUSB0, /dev/ttyACM0, /dev/ttyS0
+  serial_port: "/dev/ttyUSB0"
+  
+  # Serial communication parameters
+  baud_rate: 9600
+  timeout: 1.0
+
+# System Parameters
+system:
+  # Default activation timeout in milliseconds
+  activation_timeout: 5000
+  
+  # Calibration duration in milliseconds (old fixed timer - deprecated)
+  calibration_duration: 5000
+  
+  # Calibration timeout - maximum time to wait for STM32 response
+  calibration_timeout: 15000
+  
+  # Simulation response delay in milliseconds
+  simulation_response_delay: 1000
+
+# Joint Control Parameters
+joints:
+  # Position ranges for each joint (degrees)
+  position_range:
+    min: -135
+    max: 135
+  
+  # Power ranges for joints and effector (percentage)
+  power_range:
+    min: 0
+    max: 100
+
+# Logging Configuration
+logging:
+  # Log level: DEBUG, INFO, WARN, ERROR
+  level: "INFO"
+  
+  # Enable/disable terminal output
+  console_output: true

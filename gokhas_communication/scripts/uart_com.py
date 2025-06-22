@@ -14,9 +14,45 @@ CONTROL_FORMAT = 'BB'      # ControlMessage: 2 bytes
 JOINT_FORMAT = 'BBBBBB'    # JointMessage: 6 bytes
 TOTAL_FORMAT = 'BBBBBBBB'  # Combined: 8 bytes total
 
+class UartConfig:
+    """Configuration class for UART communication parameters"""
+    
+    # Default values
+    SERIAL_PORT = '/dev/ttyUSB0'
+    BAUD_RATE = 9600
+    TIMEOUT = 1.0
+    LOOP_RATE = 10  # Hz
+    
+    @classmethod
+    def load_config(cls):
+        """Load configuration from ROS parameters"""
+        try:
+            # Load STM32 communication parameters
+            serial_port_param = rospy.get_param('/stm32/serial_port', '/dev/ttyUSB0')
+            cls.SERIAL_PORT = str(serial_port_param) if serial_port_param is not None else '/dev/ttyUSB0'
+            
+            # Safe type conversion for numeric parameters
+            baud_rate_param = rospy.get_param('/stm32/baud_rate', 9600)
+            cls.BAUD_RATE = int(baud_rate_param) if isinstance(baud_rate_param, (int, float, str)) else 9600
+            
+            timeout_param = rospy.get_param('/stm32/timeout', 1.0)
+            cls.TIMEOUT = float(timeout_param) if isinstance(timeout_param, (int, float, str)) else 1.0
+            
+            rospy.loginfo("UART Configuration loaded from ROS parameters")
+            rospy.loginfo(f"Serial Port: {cls.SERIAL_PORT}")
+            rospy.loginfo(f"Baud Rate: {cls.BAUD_RATE}")
+            rospy.loginfo(f"Timeout: {cls.TIMEOUT}")
+            
+        except Exception as e:
+            rospy.logwarn(f"Failed to load UART config parameters: {e}")
+            rospy.loginfo("Using default UART configuration values")
+
 class CommunicationClass:
     def __init__(self):
         rospy.init_node('uart_communication_node', anonymous=True)
+        
+        # Load configuration from ROS parameters
+        UartConfig.load_config()
 
         # Publishers - Publish data received from STM32
         self.control_pub = rospy.Publisher('/gokhas/control_status', ControlMessage, queue_size=1)
@@ -27,27 +63,51 @@ class CommunicationClass:
         self.control_sub = rospy.Subscriber('/gokhas/control_commands', ControlMessage, self.control_command_callback)
         self.joint_sub = rospy.Subscriber('/gokhas/joint_commands', JointMessage, self.joint_command_callback)
         
-        # Serial port setup
+        # Serial port setup using configuration
+        self._setup_serial_port()
+
+        self.packet_size = struct.calcsize(TOTAL_FORMAT)
+        self.rate = rospy.Rate(10)  # 10Hz main loop
+        
+        # Transmit trigger flags
+        self.transmit_control_flag = False
+        self.transmit_joint_flag = False
+        
+        # Data to be transmitted
+        self.pending_control = ControlMessage()
+        self.pending_joint = JointMessage()
+        
+        # Received data
+        self.received_control = ControlMessage()
+        self.received_joint = JointMessage()
+        
+        # Communication status
+        self.communication_active = False
+        
+        rospy.loginfo("UART Communication Node initialized")
+
+    def _setup_serial_port(self):
+        """Setup serial port using configuration parameters"""
         try:
             self.serialPort = serial.Serial(
-                port='/dev/ttyUSB0',
-                baudrate=9600,
+                port=UartConfig.SERIAL_PORT,
+                baudrate=UartConfig.BAUD_RATE,
                 bytesize=8,
                 parity='N',
                 stopbits=1,
-                timeout=0.1  # Short timeout for non-blocking receive
+                timeout=UartConfig.TIMEOUT
             )
             self.serialPort.reset_input_buffer()
             self.serialPort.reset_output_buffer()
-            rospy.loginfo("Serial port opened successfully")
+            rospy.loginfo(f"Serial port opened successfully: {UartConfig.SERIAL_PORT} @ {UartConfig.BAUD_RATE} baud")
             self.serial_available = True
         except Exception as e:
-            rospy.logerr(f"Failed to open serial port: {e}")
+            rospy.logerr(f"Failed to open serial port {UartConfig.SERIAL_PORT}: {e}")
             self.serialPort = None
             self.serial_available = False
 
         self.packet_size = struct.calcsize(TOTAL_FORMAT)
-        self.rate = rospy.Rate(100)  # 100Hz main loop
+        self.rate = rospy.Rate(10)  # 100Hz main loop
         
         # Transmit trigger flags
         self.transmit_control_flag = False

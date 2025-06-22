@@ -74,11 +74,27 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'ros_bridge'):
             self.ros_bridge.communication_received.connect(self.handle_communication)
 
-    def handle_communication(self, comm_msg):
-        """Process communication message received from STM32 microcontroller"""
-        rospy.loginfo(f"Received communication: comStat={comm_msg.comStat}")
+    def handle_communication(self, control_msg):
+        """Process ControlMessage received from STM32 microcontroller"""
+        rospy.loginfo(f"Received ControlMessage: comStatus={control_msg.comStatus}, calibStatus={control_msg.calibStatus}")
         
-        if comm_msg.comStat:
+        # Handle calibration status
+        if control_msg.calibStatus == 1:
+            # STM32 confirmed calibration completion
+            rospy.loginfo("STM32 confirmed calibration completion")
+            if (hasattr(self.control_handlers, 'current_calibrating_button') and 
+                self.control_handlers.current_calibrating_button and
+                hasattr(self.control_handlers, 'current_calibrating_all_buttons') and
+                self.control_handlers.current_calibrating_all_buttons):
+                
+                # Complete calibration - set button to green
+                self.control_handlers.finish_calibration(
+                    self.control_handlers.current_calibrating_button, 
+                    self.control_handlers.current_calibrating_all_buttons
+                )
+                self.add_log_message("Calibration completed by STM32 confirmation")
+        
+        if control_msg.comStatus:
             # STM32 confirmed communication - set ACTIVATED button to green
             activation_button = None
             all_buttons = self.findChildren(QPushButton)

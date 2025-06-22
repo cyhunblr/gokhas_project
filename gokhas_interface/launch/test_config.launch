@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Load configuration parameters -->
+    <rosparam file="$(find gokhas_interface)/config/params.yaml" command="load" />
+    
+    <!-- Test configuration loading -->
+    <node pkg="gokhas_interface" type="test_config.py" name="config_test_node" output="screen" required="true"/>
+</launch>

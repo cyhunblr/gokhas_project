@@ -11,12 +11,22 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QMouseEvent
 
 class ControlHandlersConfig:
-    """Configuration constants for control handlers"""
-    ACTIVATION_TIMEOUT = 5000  # ms - timeout for system activation
-    PULSE_INTERVAL = 250       # ms - pulse animation interval
-    CALIBRATION_DURATION = 5000 # ms - calibration process duration
-    STM32_SIMULATION_MODE = True  # Simulation flag - control directly here
-    SIMULATION_RESPONSE_DELAY = 1000  # ms - simulated response delay
+    """Configuration constants for control handlers - loads from ROS parameters"""
+    
+    # Default values - will be overridden by load_config()
+    SIMULATION_MODE = True
+    SERIAL_PORT = '/dev/ttyUSB0'
+    BAUD_RATE = 115200
+    SERIAL_TIMEOUT = 1.0
+    ACTIVATION_TIMEOUT = 5000
+    CALIBRATION_DURATION = 5000
+    CALIBRATION_TIMEOUT = 15000
+    SIMULATION_RESPONSE_DELAY = 1000
+    PULSE_INTERVAL = 250
+    POSITION_MIN = -135
+    POSITION_MAX = 135
+    POWER_MIN = 0
+    POWER_MAX = 100
     
     # Object names for UI styling
     JOINT_ACTIVE = "joint-button-active"
@@ -24,19 +34,74 @@ class ControlHandlersConfig:
     TOGGLE_WAITING = "toggle-waiting"
     TOGGLE_ACTIVE = "toggle-active"
     TOGGLE_INACTIVE = "toggle-inactive"
+    
+    @classmethod
+    def load_config(cls):
+        """Load configuration from ROS parameters"""
+        try:
+            # STM32 Communication Settings
+            cls.SIMULATION_MODE = rospy.get_param('/stm32/simulation_mode', True)
+            cls.SERIAL_PORT = rospy.get_param('/stm32/serial_port', '/dev/ttyUSB0')
+            
+            # Safe type conversion for numeric parameters
+            baud_rate_param = rospy.get_param('/stm32/baud_rate', 115200)
+            cls.BAUD_RATE = int(baud_rate_param) if isinstance(baud_rate_param, (int, float, str)) else 115200
+            
+            timeout_param = rospy.get_param('/stm32/timeout', 1.0)
+            cls.SERIAL_TIMEOUT = float(timeout_param) if isinstance(timeout_param, (int, float, str)) else 1.0
+            
+            # System Parameters - safe integer conversion
+            activation_timeout_param = rospy.get_param('/system/activation_timeout', 5000)
+            cls.ACTIVATION_TIMEOUT = int(activation_timeout_param) if isinstance(activation_timeout_param, (int, float, str)) else 5000
+            
+            calibration_duration_param = rospy.get_param('/system/calibration_duration', 5000)
+            cls.CALIBRATION_DURATION = int(calibration_duration_param) if isinstance(calibration_duration_param, (int, float, str)) else 5000
+            
+            calibration_timeout_param = rospy.get_param('/system/calibration_timeout', 15000)
+            cls.CALIBRATION_TIMEOUT = int(calibration_timeout_param) if isinstance(calibration_timeout_param, (int, float, str)) else 15000
+            
+            simulation_delay_param = rospy.get_param('/system/simulation_response_delay', 1000)
+            cls.SIMULATION_RESPONSE_DELAY = int(simulation_delay_param) if isinstance(simulation_delay_param, (int, float, str)) else 1000
+            
+            # Joint Parameters - safe integer conversion
+            position_min_param = rospy.get_param('/joints/position_range/min', -135)
+            cls.POSITION_MIN = int(position_min_param) if isinstance(position_min_param, (int, float, str)) else -135
+            
+            position_max_param = rospy.get_param('/joints/position_range/max', 135)
+            cls.POSITION_MAX = int(position_max_param) if isinstance(position_max_param, (int, float, str)) else 135
+            
+            power_min_param = rospy.get_param('/joints/power_range/min', 0)
+            cls.POWER_MIN = int(power_min_param) if isinstance(power_min_param, (int, float, str)) else 0
+            
+            power_max_param = rospy.get_param('/joints/power_range/max', 100)
+            cls.POWER_MAX = int(power_max_param) if isinstance(power_max_param, (int, float, str)) else 100
+            
+            rospy.loginfo("Configuration loaded from ROS parameters")
+            rospy.loginfo(f"STM32 Simulation Mode: {cls.SIMULATION_MODE}")
+            rospy.loginfo(f"STM32 Serial Port: {cls.SERIAL_PORT}")
+            rospy.loginfo(f"Baud Rate: {cls.BAUD_RATE}")
+            
+        except Exception as e:
+            rospy.logwarn(f"Failed to load some config parameters: {e}")
+            rospy.loginfo("Using default configuration values")
 
 class ControlHandlers:
     """Class that manages interface button functions and system control logic"""
     
     def __init__(self, main_window):
         """Initialize control handlers with main window reference"""
+        # Load configuration from ROS parameters
+        ControlHandlersConfig.load_config()
+        
         self.parent = main_window
         self.main_window = main_window
         self.pulse_timers = {}  # Dictionary to store animation timers
         self.calibration_in_progress = False  # Flag to track calibration state
         self.current_calibrating_button = None  # Reference to currently calibrating button
+        self.current_calibrating_all_buttons = None  # Reference to all calibration buttons
         self.activation_timeout_timer = None  # Timer for activation timeout
         self.simulation_timer = None  # Timer for STM32 simulation
+        self.calibration_timeout_timer = None  # Timer for calibration timeout
         
         # Joint state tracking - save joint states when system is deactivated/activated
         self._saved_joint_states = {}
@@ -59,7 +124,7 @@ class ControlHandlers:
             # INITIALIZE SYSTEM WITH CONTROLS DISABLED AT STARTUP
             QTimer.singleShot(200, self._initialize_system_state)
 
-        rospy.loginfo(f"STM32 Simulation Mode: {'ENABLED' if ControlHandlersConfig.STM32_SIMULATION_MODE else 'DISABLED'}")
+        rospy.loginfo(f"STM32 Simulation Mode: {'ENABLED' if ControlHandlersConfig.SIMULATION_MODE else 'DISABLED'}")
 
     def _initialize_system_state(self):
         """Set initial system state - system should be deactivated at startup"""
@@ -143,6 +208,9 @@ class ControlHandlers:
         self._set_joint_sliders_enabled(joint_name, True)
         self._log_combined_values(joint_name)
         
+        # Publish initial joint command when joint is activated
+        self._publish_joint_command()
+        
         # Disable other controls when joint is active
         self._set_calibration_buttons_enabled(False)
         self._set_mode_button_enabled(False)
@@ -152,6 +220,9 @@ class ControlHandlers:
         button.setObjectName("joint-button-inactive")
         self.main_window.add_log_message(f"Joint deactivated: {joint_name}")
         self._set_joint_sliders_enabled(joint_name, False)
+        
+        # Publish joint command when joint is deactivated (will zero out the joint)
+        self._publish_joint_command()
 
     def _update_joint_controls_state(self):
         """Update the state of joint controls based on current configuration"""
@@ -191,18 +262,22 @@ class ControlHandlers:
         self._safe_operation(enable_sliders, f"Failed to set sliders for {joint_name}")
 
     def position_slider_changed(self, joint_name, value):
-        """Called when position slider value changes"""
+        """Called when position slider value changes - publishes JointMessage"""
         print(f"Position changed for {joint_name}: {value}")
         # Log only for active joints - to log together with power value
         if self._is_joint_active(joint_name):
             self._log_combined_values(joint_name)
+            # Publish joint command when slider changes
+            self._publish_joint_command()
 
     def power_slider_changed(self, joint_name, value):
-        """Called when power slider value changes"""
+        """Called when power slider value changes - publishes JointMessage"""
         print(f"Power changed for {joint_name}: {value}")
         # Log only for active joints - to log together with position value
         if self._is_joint_active(joint_name):
             self._log_combined_values(joint_name)
+            # Publish joint command when slider changes
+            self._publish_joint_command()
 
     def _is_joint_active(self, joint_name):
         """Check if specified joint is currently active"""
@@ -244,13 +319,16 @@ class ControlHandlers:
         print(f"Calibration button pressed: {calibration_name}")
         rospy.loginfo(f"Calibration button pressed: {calibration_name}")
         
-        # TODO: Send calibration command to ROS service
-        # Example:
-        # try:
-        #     calibration_service = rospy.ServiceProxy('calibrate_joint', CalibrateJoint)
-        #     response = calibration_service(joint_name=calibration_name)
-        # except rospy.ServiceException as e:
-        #     rospy.logerr(f"Calibration service call failed: {e}")
+        # Create communication message for calibration
+        comm_msg = self._create_communication_message(comStat=1, calibStat=1)
+        
+        # Publish calibration command to STM32
+        self._publish_communication(comm_msg)
+        
+        # Add log message to UI
+        self.main_window.add_log_message(f"Calibration started: {calibration_name}")
+        
+        rospy.loginfo(f"Calibration command sent to STM32: {calibration_name}")
 
     def handle_calibration_click(self, btn, all_buttons):
         """Handle calibration button click with visual feedback and process management"""
@@ -293,15 +371,22 @@ class ControlHandlers:
             # Start pulse animation
             self._start_pulse_animation(btn)
             
-            # Complete after 5 seconds - STORE THE TIMER!
-            completion_timer = QTimer()
-            completion_timer.setSingleShot(True)
-            completion_timer.timeout.connect(lambda: self.finish_calibration(btn, all_buttons))
-            completion_timer.start(ControlHandlersConfig.CALIBRATION_DURATION)
+            # Store current calibrating button for response handling
+            self.current_calibrating_button = btn
+            self.current_calibrating_all_buttons = all_buttons
             
-            # Add timer to pulse_timers so it can be stopped
-            btn_id = f"completion_{id(btn)}"
-            self.pulse_timers[btn_id] = completion_timer
+            # Check if simulation mode - send automatic response
+            if ControlHandlersConfig.SIMULATION_MODE:
+                # In simulation mode, send automatic calibration completion response
+                self.simulation_timer = QTimer()
+                self.simulation_timer.setSingleShot(True)
+                self.simulation_timer.timeout.connect(self._simulate_calibration_response)
+                self.simulation_timer.start(ControlHandlersConfig.SIMULATION_RESPONSE_DELAY)
+                rospy.loginfo(f"SIMULATION: Calibration {btn.text()} - auto-response in {ControlHandlersConfig.SIMULATION_RESPONSE_DELAY/1000} seconds")
+            else:
+                # Real mode - wait for STM32 response with timeout
+                self._start_calibration_timeout()
+                rospy.loginfo(f"Calibration started: {btn.text()} - waiting for STM32 response (timeout: {ControlHandlersConfig.CALIBRATION_TIMEOUT/1000}s)...")
 
     def _start_pulse_animation(self, btn):
         """Start pulse animation for calibration button during processing"""
@@ -552,7 +637,7 @@ class ControlHandlers:
 
         if status == "ACTIVATED":
             # Create communication message for activation
-            comm_msg = self._create_communication_message(comStat=True)
+            comm_msg = self._create_communication_message(comStat=1)
             
             # Set button to waiting state
             if activation_button:
@@ -564,7 +649,7 @@ class ControlHandlers:
                 
         else:  # DEACTIVATED
             # Create communication message for deactivation
-            comm_msg = self._create_communication_message(comStat=False)
+            comm_msg = self._create_communication_message(comStat=0)
             
             # Stop timeout and set button to inactive
             self._stop_activation_timeout()
@@ -651,6 +736,7 @@ class ControlHandlers:
             # Reset calibration state
             self.calibration_in_progress = False
             self.current_calibrating_button = None
+            self.current_calibrating_all_buttons = None
             self.main_window.calibration_active = False
             
             # Log message
@@ -670,7 +756,7 @@ class ControlHandlers:
         self._stop_activation_timeout()
         
         # In simulation mode, send automatic successful response
-        if ControlHandlersConfig.STM32_SIMULATION_MODE:
+        if ControlHandlersConfig.SIMULATION_MODE:
             self._start_simulation_response()
             rospy.loginfo(f"STM32 Simulation Mode: Auto-response in {ControlHandlersConfig.SIMULATION_RESPONSE_DELAY/1000} seconds")
         else:
@@ -692,13 +778,28 @@ class ControlHandlers:
         """Simulate successful response from STM32"""
         rospy.loginfo("SIMULATION: STM32 communication successful")
         
-        # Create mock communication message
-        class MockCommMsg:
+        # Create mock ControlMessage
+        class MockControlMsg:
             def __init__(self):
-                self.comStat = True
+                self.comStatus = 1  # 1 = active
+                self.calibStatus = 0  # 0 = normal
         
         # Call handle_communication
-        self.main_window.handle_communication(MockCommMsg())
+        self.main_window.handle_communication(MockControlMsg())
+        self.simulation_timer = None
+
+    def _simulate_calibration_response(self):
+        """Simulate calibration completion response from STM32"""
+        rospy.loginfo("SIMULATION: STM32 calibration completed")
+        
+        # Create mock ControlMessage with calibration status
+        class MockControlMsg:
+            def __init__(self):
+                self.comStatus = 1  # 1 = active
+                self.calibStatus = 1  # 1 = calibration completed
+        
+        # Call handle_communication
+        self.main_window.handle_communication(MockControlMsg())
         self.simulation_timer = None
 
     def _stop_activation_timeout(self):
@@ -711,11 +812,14 @@ class ControlHandlers:
         if hasattr(self, 'simulation_timer') and self.simulation_timer:
             self.simulation_timer.stop()
             self.simulation_timer = None
+            
+        # Also stop calibration timeout
+        self._stop_calibration_timeout()
 
     def toggle_simulation_mode(self):
         """Toggle simulation mode on/off"""
-        ControlHandlersConfig.STM32_SIMULATION_MODE = not ControlHandlersConfig.STM32_SIMULATION_MODE
-        status = "ENABLED" if ControlHandlersConfig.STM32_SIMULATION_MODE else "DISABLED"
+        ControlHandlersConfig.SIMULATION_MODE = not ControlHandlersConfig.SIMULATION_MODE
+        status = "ENABLED" if ControlHandlersConfig.SIMULATION_MODE else "DISABLED"
         rospy.loginfo(f"STM32 Simulation Mode: {status}")
         self.main_window.add_log_message(f"STM32 Simulation Mode: {status}")
 
@@ -734,14 +838,48 @@ class ControlHandlers:
                     break
     
         if activation_button:
+            # Properly reset button state to DEACTIVATED
             self._set_button_state(activation_button, ControlHandlersConfig.TOGGLE_INACTIVE, "DEACTIVATED")
             self.main_window.add_log_message("STM32 communication timeout - activation failed")
             
-            # Disable system controls
+            # Reset system state completely
             self.main_window.system_activated = False
+            
+            # Reset calibration state
+            self._reset_calibration_state()
+            
+            # Reset mode to MANUAL (without triggering signals)
+            self._reset_mode_to_manual()
+            
+            # Disable all system controls AFTER resetting states
             self._set_system_controls_enabled(False)
+            
+            # Clear any pending activation state
+            self._clear_activation_state()
     
         self.activation_timeout_timer = None
+
+    def _clear_activation_state(self):
+        """Clear any pending activation state to ensure clean state"""
+        # Stop any running timers
+        self._stop_activation_timeout()
+        
+        # Reset internal flags
+        if hasattr(self, '_activation_in_progress'):
+            self._activation_in_progress = False
+            
+        # Clear button cache states to prevent stale references
+        if 'activation_button' in self._button_cache:
+            activation_button = self._button_cache['activation_button']
+            # Ensure button is visually reset
+            if activation_button and activation_button.isVisible():
+                activation_button.setChecked(False)
+                activation_button.repaint()  # Force repaint
+                
+        # Ensure system is in proper deactivated state
+        self.main_window.system_activated = False
+        
+        rospy.loginfo("Activation state cleared - system ready for new activation attempt")
 
     def mode_button_clicked(self, button_text):
         """Called when mode button (MANUAL/AUTONOMOUS) is clicked"""
@@ -1088,31 +1226,70 @@ class ControlHandlers:
 
     # --- COMMUNICATION FUNCTIONS ---
     def _create_communication_message(self, **kwargs):
-        """Helper to create communication message"""
-        from gokhas_communication.msg import communication
-        comm_msg = communication()
+        """Helper to create control message"""
+        from gokhas_communication.msg import ControlMessage
+        control_msg = ControlMessage()
         
-        # Default values
-        defaults = {
-            'comStat': False, 'modStat': False,
-            'rJ1p': 0, 'rJ1s': 0, 'rJ2p': 0, 'rJ2s': 0, 'rAp': 0, 'rAt': False,
-            'tJ1p': 0, 'tJ1s': 0, 'tJ2p': 0, 'tJ2s': 0, 'tAp': 0, 'tAt': False,
-            'cJ1': False, 'cJ2': False
-        }
+        # Set control message values
+        control_msg.comStatus = kwargs.get('comStat', 0)      # 0=inactive, 1=active
+        control_msg.calibStatus = kwargs.get('calibStat', 0)  # 0=normal, 1=calibration_mode
         
-        # Update with provided values
-        for key, value in defaults.items():
-            setattr(comm_msg, key, kwargs.get(key, value))
-        
-        return comm_msg
+        return control_msg
     
-    def _publish_communication(self, comm_msg):
-        """Safely publish communication message"""
+    def _publish_communication(self, control_msg):
+        """Safely publish control message"""
         if hasattr(self.main_window, 'ros_bridge') and self.main_window.ros_bridge:
             try:
-                self.main_window.ros_bridge.publish_communication(comm_msg)
+                self.main_window.ros_bridge.publish_control_command(control_msg)
             except Exception as e:
-                rospy.logerr(f"Communication publish failed: {e}")
+                rospy.logerr(f"Control message publish failed: {e}")
+
+    def _create_joint_message(self):
+        """Helper to create joint message from current slider values"""
+        from gokhas_communication.msg import JointMessage
+        joint_msg = JointMessage()
+        
+        # Get active joints and their values
+        active_joints = []
+        joint_values = {}
+        
+        for joint_name in ["Joint1", "Joint2", "Effector"]:
+            if self._is_joint_active(joint_name):
+                active_joints.append(joint_name)
+                pos_val, pow_val = self._get_joint_values(joint_name)
+                joint_values[joint_name] = {"position": pos_val, "power": pow_val}
+        
+        # Map joint values to JointMessage fields
+        if "Joint1" in joint_values:
+            joint_msg.j1p = abs(joint_values["Joint1"]["position"])  # 0-135
+            joint_msg.j1s = joint_values["Joint1"]["power"]          # 0-100
+        
+        if "Joint2" in joint_values:
+            joint_msg.j2p = abs(joint_values["Joint2"]["position"])  # 0-135
+            joint_msg.j2s = joint_values["Joint2"]["power"]          # 0-100
+        
+        if "Effector" in joint_values:
+            joint_msg.ap = joint_values["Effector"]["power"]         # 0-100 (Effector has no position)
+        
+        # Set control bits for position signs
+        control_bits = 0
+        if "Joint1" in joint_values and joint_values["Joint1"]["position"] < 0:
+            control_bits |= 0b00000010  # Set j1p_sign bit (bit 2)
+        if "Joint2" in joint_values and joint_values["Joint2"]["position"] < 0:
+            control_bits |= 0b00000100  # Set j2p_sign bit (bit 3)
+        
+        joint_msg.control_bits = control_bits
+        return joint_msg
+    
+    def _publish_joint_command(self):
+        """Create and publish joint command from current slider values"""
+        if hasattr(self.main_window, 'ros_bridge') and self.main_window.ros_bridge:
+            try:
+                joint_msg = self._create_joint_message()
+                self.main_window.ros_bridge.publish_joint_command(joint_msg)
+                rospy.logdebug(f"Published joint command: J1({joint_msg.j1p},{joint_msg.j1s}) J2({joint_msg.j2p},{joint_msg.j2s}) Effector({joint_msg.ap})")
+            except Exception as e:
+                rospy.logerr(f"Joint message publish failed: {e}")
 
     def _set_button_state(self, button, object_name, text=None, enabled=True):
         """Safely set button state"""
@@ -1217,3 +1394,81 @@ class ControlHandlers:
             
         except Exception as e:
             rospy.logwarn(f"UI cache initialization failed: {e}")
+
+    def _start_calibration_timeout(self):
+        """Start calibration timeout timer to handle STM32 non-response"""
+        self._stop_calibration_timeout()
+        
+        # Start timeout timer for real hardware mode
+        self.calibration_timeout_timer = QTimer()
+        self.calibration_timeout_timer.setSingleShot(True)
+        self.calibration_timeout_timer.timeout.connect(self._calibration_timeout_callback)
+        self.calibration_timeout_timer.start(ControlHandlersConfig.CALIBRATION_TIMEOUT)
+        rospy.loginfo(f"Calibration timeout started ({ControlHandlersConfig.CALIBRATION_TIMEOUT/1000} seconds)")
+
+    def _stop_calibration_timeout(self):
+        """Stop calibration timeout timer"""
+        if hasattr(self, 'calibration_timeout_timer') and self.calibration_timeout_timer:
+            self.calibration_timeout_timer.stop()
+            self.calibration_timeout_timer = None
+
+    def _calibration_timeout_callback(self):
+        """Called when calibration timeout expires - STM32 didn't respond"""
+        rospy.logwarn("Calibration timeout - STM32 did not respond to calibration request")
+        
+        if self.calibration_in_progress and self.current_calibrating_button and self.current_calibrating_all_buttons:
+            # Log the timeout
+            self.main_window.add_log_message(f"Calibration timeout: {self.current_calibrating_button.text()} - STM32 did not respond")
+            
+            # Reset the calibration state - mark as failed
+            self._reset_calibration_on_timeout()
+        
+        self.calibration_timeout_timer = None
+
+    def _reset_calibration_on_timeout(self):
+        """Reset calibration state when timeout occurs"""
+        if not self.calibration_in_progress:
+            return
+            
+        rospy.loginfo("Resetting calibration state due to timeout")
+        
+        # Stop all timers
+        for timer_id, timer in list(self.pulse_timers.items()):
+            try:
+                timer.stop()
+                timer.deleteLater()
+            except Exception as e:
+                rospy.logwarn(f"Timer cleanup error: {e}")
+        self.pulse_timers.clear()
+        
+        # Reset button states - set to default (red) instead of completed (green)
+        if self.current_calibrating_button and self.current_calibrating_all_buttons:
+            # Set the failed button back to default state
+            self.current_calibrating_button.setObjectName("calibration-default")
+            self.current_calibrating_button.setStyleSheet("")
+            self.current_calibrating_button.setEnabled(True)
+            
+            # Re-enable other calibration buttons
+            for btn in self.current_calibrating_all_buttons:
+                if btn != self.current_calibrating_button:
+                    btn.setObjectName("calibration-default")
+                    btn.setStyleSheet("")
+                    btn.setEnabled(True)
+        
+        # Re-enable joint buttons
+        self._set_joint_buttons_enabled(True)
+        
+        # Re-enable mode button
+        self._set_mode_button_enabled(True)
+        
+        # Reset calibration state variables
+        self.calibration_in_progress = False
+        self.current_calibrating_button = None
+        self.current_calibrating_all_buttons = None
+        self.main_window.calibration_active = False
+        
+        # Apply styles
+        if self.parent:
+            self.parent.apply_styles()
+        
+        rospy.loginfo("Calibration state reset due to timeout - ready for new calibration attempt")

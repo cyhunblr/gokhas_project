@@ -1,5 +1,8 @@
 <launch>
 
+    <!-- Load configuration parameters -->
+    <rosparam file="$(find gokhas_interface)/config/params.yaml" command="load" />
+
     <!-- GokHAS Interface Launch -->
     <node pkg="gokhas_interface" type="launch_interface.py" name="qt_interface_node" output="screen" required="true"/>
 
