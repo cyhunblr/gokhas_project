@@ -443,6 +443,9 @@ class ControlHandlers:
         btn_id = id(btn)
         completion_timer_id = f"completion_{btn_id}"
         
+        # Stop calibration timeout timer
+        self._stop_calibration_timeout()
+        
         # Stop pulse timer
         if btn_id in self.pulse_timers:
             try:
@@ -716,7 +719,9 @@ class ControlHandlers:
         if self.calibration_in_progress:
             rospy.loginfo("System deactivated - resetting calibration state")
             
-            # STOP ALL TIMERS (pulse + completion timers)
+            # STOP ALL TIMERS (pulse + completion + calibration timeout timers)
+            self._stop_calibration_timeout()
+            
             for timer_id, timer in list(self.pulse_timers.items()):
                 try:
                     timer.stop()
