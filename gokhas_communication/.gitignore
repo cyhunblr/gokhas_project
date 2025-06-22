@@ -1,1 +1,27 @@
-*.vscode/
+# Python
+*.pyc
+__pycache__/
+**/__pycache__/
+**/*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# ROS
+build/
+devel/
+.catkin_workspace
+*~
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

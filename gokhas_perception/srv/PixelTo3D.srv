@@ -1,0 +1,6 @@
+bool autonomous
+uint32 pixel_x
+uint32 pixel_y
+---
+int16 joint1degree
+int16 joint2degree

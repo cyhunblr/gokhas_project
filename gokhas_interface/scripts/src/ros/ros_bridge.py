@@ -22,7 +22,7 @@ from cv_bridge import CvBridge, CvBridgeError  # Convert between ROS and OpenCV 
 
 from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer  # Qt core components
 from PyQt6.QtGui import QImage, QPixmap                   # Qt image handling
-from gokhas_communication.msg import communication
+from gokhas_communication.msg import ControlMessage, JointMessage
 
 class ROSBridge(QObject):
     """
@@ -98,14 +98,18 @@ class ROSBridge(QObject):
         # This bridge converts between ROS image messages and OpenCV/Qt formats
         self.bridge = CvBridge()
         
-        # Communication publisher/subscriber - INITIALIZE FIRST
+        # Communication publishers/subscribers - INITIALIZE FIRST
         # These handle command/status communication with robot control system
         try:
-            # Publisher: Send commands from GUI to robot
-            self.comm_pub = rospy.Publisher('/gokhas/interface_commands', communication, queue_size=1)
-            # Subscriber: Receive status updates from robot
-            self.comm_sub = rospy.Subscriber('/gokhas/communication', communication, self.communication_callback)
-            rospy.loginfo("ROSBridge: Communication publisher/subscriber initialized.")
+            # Publishers: Send commands from GUI to robot
+            self.control_pub = rospy.Publisher('/gokhas/control_commands', ControlMessage, queue_size=1)
+            self.joint_pub = rospy.Publisher('/gokhas/joint_commands', JointMessage, queue_size=1)
+            
+            # Subscribers: Receive status updates from robot
+            self.control_sub = rospy.Subscriber('/gokhas/control_status', ControlMessage, self.control_status_callback)
+            self.joint_sub = rospy.Subscriber('/gokhas/joint_feedback', JointMessage, self.joint_feedback_callback)
+            
+            rospy.loginfo("ROSBridge: Control and Joint publishers/subscribers initialized.")
         except Exception as e:
             rospy.logerr(f"Could not create communication pub/sub: {e}")
             return False
@@ -237,32 +241,59 @@ class ROSBridge(QObject):
                 rospy.logerr(f"Image processing error: {e}")
                 self.log_message.emit(f"ERROR: Image processing failed - {e}")
 
-    def communication_callback(self, msg):
+    def control_status_callback(self, msg):
         """
-        Handle communication messages received from robot control system
+        Handle control status messages received from robot control system
         
-        This callback processes status updates and responses from the robot,
-        such as confirmation of commands or system state changes.
+        This callback processes status updates related to communication
+        and calibration states from the robot.
         
         Args:
-            msg: Communication message from robot control system
+            msg: ControlMessage from robot control system
         """
-        # Forward communication message to main interface through signal
+        # Forward control status message to main interface through signal
         # This ensures thread-safe delivery to GUI components
         self.communication_received.emit(msg)
 
-    def publish_communication(self, comm_msg):
+    def joint_feedback_callback(self, msg):
         """
-        Send communication message to robot control system
+        Handle joint feedback messages received from robot control system
         
-        This method publishes commands and requests from the GUI
-        to the robot control system for execution.
+        This callback processes feedback data related to joint positions,
+        speeds, and airsoft system status from the robot.
         
         Args:
-            comm_msg: Communication message to send to robot
+            msg: JointMessage from robot control system
         """
-        # Publish message to robot control system
-        self.comm_pub.publish(comm_msg)
+        # For now, just log the joint feedback
+        # TODO: Add joint feedback handling in GUI if needed
+        rospy.logdebug(f"Joint feedback: J1({msg.j1p},{msg.j1s}) J2({msg.j2p},{msg.j2s}) Airsoft({msg.ap})")
+
+    def publish_control_command(self, control_msg):
+        """
+        Send control command to robot control system
+        
+        This method publishes control commands (activation, calibration)
+        from the GUI to the robot control system.
+        
+        Args:
+            control_msg: ControlMessage to send to robot
+        """
+        # Publish control message to robot control system
+        self.control_pub.publish(control_msg)
+
+    def publish_joint_command(self, joint_msg):
+        """
+        Send joint command to robot control system
+        
+        This method publishes joint commands (position, speed, airsoft)
+        from the GUI to the robot control system.
+        
+        Args:
+            joint_msg: JointMessage to send to robot
+        """
+        # Publish joint message to robot control system
+        self.joint_pub.publish(joint_msg)
 
     def _update_detection_status(self):
         """

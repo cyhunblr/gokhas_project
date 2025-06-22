@@ -96,3 +96,6 @@ For yolov8, you can choose `yolov8*.pt`, `yolov8*-seg.pt`.
 ```
 $ roslaunch gokhas_perception kitti_tracker_with_cloud.launch
 ```
+
+## TODO
+[ ] Implement using CamerInfo instead of PC2
