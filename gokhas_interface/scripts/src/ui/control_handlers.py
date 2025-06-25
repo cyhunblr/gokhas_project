@@ -28,6 +28,10 @@ class ControlHandlersConfig:
     POWER_MIN = 0
     POWER_MAX = 100
     
+    # Logging Configuration
+    LOGGING_LEVEL = 'INFO'
+    CONSOLE_OUTPUT = True
+    
     # Object names for UI styling
     JOINT_ACTIVE = "joint-button-active"
     JOINT_INACTIVE = "joint-button-inactive"
@@ -76,10 +80,23 @@ class ControlHandlersConfig:
             power_max_param = rospy.get_param('/joints/power_range/max', 100)
             cls.POWER_MAX = int(power_max_param) if isinstance(power_max_param, (int, float, str)) else 100
             
+            # Logging Configuration - safe string conversion
+            logging_level_param = rospy.get_param('/logging/level', 'INFO')
+            cls.LOGGING_LEVEL = str(logging_level_param) if isinstance(logging_level_param, (str, int, float)) else 'INFO'
+            cls.CONSOLE_OUTPUT = rospy.get_param('/logging/console_output', True)
+            
+            # Configure ROS logging level if DEBUG is enabled
+            if cls.LOGGING_LEVEL.upper() == 'DEBUG':
+                rospy.loginfo("DEBUG logging level enabled - verbose terminal output activated")
+                cls.DEBUG_MODE = True
+            else:
+                rospy.loginfo(f"Logging level set to: {cls.LOGGING_LEVEL}")
+                cls.DEBUG_MODE = False
+            
             rospy.loginfo("Configuration loaded from ROS parameters")
-            rospy.loginfo(f"STM32 Simulation Mode: {cls.SIMULATION_MODE}")
             rospy.loginfo(f"STM32 Serial Port: {cls.SERIAL_PORT}")
             rospy.loginfo(f"Baud Rate: {cls.BAUD_RATE}")
+            rospy.loginfo(f"STM32 Simulation Mode: {'ENABLED' if cls.SIMULATION_MODE else 'DISABLED'}")
             
         except Exception as e:
             rospy.logwarn(f"Failed to load some config parameters: {e}")
@@ -106,6 +123,12 @@ class ControlHandlers:
         # Joint state tracking - save joint states when system is deactivated/activated
         self._saved_joint_states = {}
         
+        # System controls state tracking - prevent duplicate log messages
+        self._last_system_controls_state = None
+        
+        # Mode reset state tracking - prevent duplicate "Mode reset to MANUAL" messages
+        self._last_mode_reset_state = None
+        
         # Performance: Cache frequently accessed UI elements
         self._button_cache = {
             'joint_buttons': [],
@@ -125,7 +148,52 @@ class ControlHandlers:
             QTimer.singleShot(200, self._initialize_system_state)
 
         rospy.loginfo(f"STM32 Simulation Mode: {'ENABLED' if ControlHandlersConfig.SIMULATION_MODE else 'DISABLED'}")
-
+        self._debug_log("ControlHandlers initialized successfully")
+        self._debug_log("ControlHandlers initialization complete")
+    
+    def _debug_log(self, message, also_to_ui=False):
+        """Helper method for debug logging - logs to terminal if DEBUG mode is enabled
+        Args:
+            message: Debug message to log
+            also_to_ui: If True, also add to UI log panel
+        """
+        if hasattr(ControlHandlersConfig, 'DEBUG_MODE') and ControlHandlersConfig.DEBUG_MODE:
+            rospy.loginfo(f"[DEBUG] {message}")
+            if also_to_ui and self.main_window:
+                self.main_window.add_log_message(f"[DEBUG] {message}")
+    
+    def _add_system_log(self, message, level="INFO"):
+        """Add system event to UI log with timestamp and level"""
+        if self.main_window:
+            timestamp = rospy.Time.now().to_sec()
+            log_message = f"[{level}] {message}"
+            self.main_window.add_log_message(log_message)
+            
+            # Also log to terminal based on level
+            if level == "ERROR":
+                rospy.logerr(message)
+            elif level == "WARN":
+                rospy.logwarn(message)
+            else:
+                rospy.loginfo(message)
+                
+        # Add some useful system event logs
+        if hasattr(ControlHandlersConfig, 'DEBUG_MODE') and ControlHandlersConfig.DEBUG_MODE:
+            self._debug_log(f"System event logged: [{level}] {message}")
+    
+    def _log_system_event(self, event_type, details=""):
+        """Log important system events to both terminal and UI"""
+        timestamp = rospy.Time.now().to_sec()
+        message = f"SYSTEM EVENT: {event_type}"
+        if details:
+            message += f" - {details}"
+            
+        self._debug_log(message, also_to_ui=True)
+        
+        # Log specific events of interest
+        if event_type in ["ACTIVATION_TIMEOUT", "MODE_RESET", "SYSTEM_STATE_CHANGE"]:
+            rospy.logwarn(f"Critical system event: {message}")
+    
     def _initialize_system_state(self):
         """Set initial system state - system should be deactivated at startup"""
         # System starts in deactivated state
@@ -221,8 +289,8 @@ class ControlHandlers:
         self.main_window.add_log_message(f"Joint deactivated: {joint_name}")
         self._set_joint_sliders_enabled(joint_name, False)
         
-        # Publish joint command when joint is deactivated (will zero out the joint)
-        self._publish_joint_command()
+        # Don't publish any command when deactivating joint - just stop controlling it
+        # This prevents unwanted zero messages when closing joint controls
 
     def _update_joint_controls_state(self):
         """Update the state of joint controls based on current configuration"""
@@ -627,6 +695,7 @@ class ControlHandlers:
     def activation_button_clicked(self, status):
         """Refactored activation handler - manages system activation state"""
         rospy.loginfo(f"Activation status changed: {status}")
+        self._debug_log(f"Activation button clicked: {status}")
         
         # Get from cache, if not found, find and cache
         activation_button = self._button_cache.get('activation_button')
@@ -639,6 +708,7 @@ class ControlHandlers:
                     break
 
         if status == "ACTIVATED":
+            self._debug_log("Processing ACTIVATED state")
             # Create communication message for activation
             comm_msg = self._create_communication_message(comStat=1)
             
@@ -647,10 +717,12 @@ class ControlHandlers:
                 self._set_button_state(activation_button, ControlHandlersConfig.TOGGLE_WAITING, "ACTIVATED")
                 self.main_window.add_log_message("Waiting for STM32 communication confirmation...")
                 self._start_activation_timeout()
+                self._debug_log("Activation timeout started")
             else:
                 rospy.logerr("Activation button not found!")
                 
         else:  # DEACTIVATED
+            self._debug_log("Processing DEACTIVATED state - starting deactivation sequence")
             # Create communication message for deactivation
             comm_msg = self._create_communication_message(comStat=0)
             
@@ -661,10 +733,13 @@ class ControlHandlers:
             
             # 1. FIRST CHANGE SYSTEM STATE
             self.main_window.system_activated = False
+            self._debug_log("System state set to deactivated")
             
             # 2. RESET CALIBRATION AND MODE STATE (without affecting controls)
             self._reset_calibration_state()
+            self._debug_log("Calibration state reset")
             self._reset_mode_to_manual()
+            self._debug_log("Mode reset to manual completed")
             
             # 3. FINALLY DISABLE CONTROLS
             self._set_system_controls_enabled(False)
@@ -674,6 +749,18 @@ class ControlHandlers:
 
     def _reset_mode_to_manual(self):
         """Reset mode button to MANUAL when system is deactivated"""
+        self._debug_log(f"_reset_mode_to_manual called - current state: {self._last_mode_reset_state}")
+        
+        # Prevent duplicate log messages - check if mode is already reset
+        if self._last_mode_reset_state == "MANUAL":
+            self._debug_log("Mode already reset to MANUAL - skipping duplicate reset")
+            return
+        
+        # Set state immediately to prevent race conditions
+        self._last_mode_reset_state = "MANUAL"
+        self._debug_log("Mode reset state set to MANUAL")
+        self._log_system_event("MODE_RESET", "Resetting mode to MANUAL")
+        
         mode_button = self._button_cache.get('mode_button')
         
         if not mode_button:
@@ -708,11 +795,13 @@ class ControlHandlers:
             # Log message
             self.main_window.add_log_message("Mode reset to MANUAL")
             rospy.loginfo("Mode reset to MANUAL on system deactivation")
+            self._debug_log("Mode reset to MANUAL completed - UI and state updated")
             
             # RECONNECT SIGNALS - BUT MANUAL CONNECTION!
             # mode_button.clicked.connect(...) - REMOVE THIS LINE
         else:
             rospy.logwarn("Mode button not found for reset!")
+            self._debug_log("Mode button not found for reset!")
 
     def _reset_calibration_state(self):
         """Reset calibration state when system is deactivated"""
@@ -831,6 +920,8 @@ class ControlHandlers:
     def _activation_timeout_callback(self):
         """Activation timeout callback - called when STM32 doesn't respond"""
         rospy.logwarn("STM32 communication timeout - activation failed")
+        self._debug_log("TIMEOUT CALLBACK: STM32 activation timeout - starting timeout recovery sequence")
+        self._log_system_event("ACTIVATION_TIMEOUT", "STM32 communication failed")
         
         # Get activation button from cache
         activation_button = self._button_cache.get('activation_button')
@@ -849,12 +940,17 @@ class ControlHandlers:
             
             # Reset system state completely
             self.main_window.system_activated = False
+            self._debug_log("TIMEOUT CALLBACK: System state set to deactivated")
+            self._log_system_event("SYSTEM_STATE_CHANGE", "System deactivated due to timeout")
             
             # Reset calibration state
             self._reset_calibration_state()
+            self._debug_log("TIMEOUT CALLBACK: Calibration state reset")
             
             # Reset mode to MANUAL (without triggering signals)
+            self._debug_log("TIMEOUT CALLBACK: About to call _reset_mode_to_manual")
             self._reset_mode_to_manual()
+            self._debug_log("TIMEOUT CALLBACK: _reset_mode_to_manual completed")
             
             # Disable all system controls AFTER resetting states
             self._set_system_controls_enabled(False)
@@ -889,6 +985,10 @@ class ControlHandlers:
     def mode_button_clicked(self, button_text):
         """Called when mode button (MANUAL/AUTONOMOUS) is clicked"""
         rospy.loginfo(f"Mode button clicked: {button_text}")
+        
+        # Reset mode reset state tracking when user manually changes mode
+        # This allows the "Mode reset to MANUAL" message to appear again when needed
+        self._last_mode_reset_state = None
         
         # Update manual mode state
         if button_text == "MANUAL":
@@ -1034,8 +1134,7 @@ class ControlHandlers:
     # --- THEME AND SYSTEM FUNCTIONS ---
     def change_theme(self, theme_name):
         """Function for theme change"""
-        print(f"Theme changed: {theme_name}")
-        rospy.loginfo(f"Theme changed: {theme_name}")
+        self._debug_log(f"Theme changed: {theme_name}", also_to_ui=False)
         
         # Apply theme through resource manager
         if self.parent:
@@ -1128,6 +1227,17 @@ class ControlHandlers:
         """Enable/disable all controls based on system activation state"""
         if not self.main_window:
             return
+
+        self._debug_log(f"_set_system_controls_enabled called with enabled={enabled}")
+
+        # Check if we already have this state - prevent duplicate log messages
+        if hasattr(self, '_last_system_controls_state') and self._last_system_controls_state == enabled:
+            self._debug_log("System controls state unchanged - skipping duplicate call")
+            return  # No change needed, avoid duplicate log messages
+        
+        # Store the new state
+        self._last_system_controls_state = enabled
+        self._debug_log(f"System controls state changed to: {enabled}")
 
         ui = self.main_window.ui_elements
 
@@ -1222,7 +1332,7 @@ class ControlHandlers:
                 self._set_calibration_buttons_enabled(True)
                 self._set_mode_button_enabled(True)
 
-        # Status message
+        # Status message - only log when state actually changes
         status = "enabled" if enabled else "disabled"
         self.main_window.add_log_message(f"System controls {status}")
         
