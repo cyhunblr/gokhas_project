@@ -66,7 +66,9 @@ class CommunicationClass:
         # Serial port setup using configuration
         self._setup_serial_port()
 
-        self.packet_size = struct.calcsize(TOTAL_FORMAT)
+        # Calculate packet sizes for separate structures
+        self.control_packet_size = struct.calcsize(CONTROL_FORMAT)  # 2 bytes
+        self.joint_packet_size = struct.calcsize(JOINT_FORMAT)     # 6 bytes
         self.rate = rospy.Rate(10)  # 10Hz main loop
         
         # Transmit trigger flags
@@ -106,26 +108,6 @@ class CommunicationClass:
             self.serialPort = None
             self.serial_available = False
 
-        self.packet_size = struct.calcsize(TOTAL_FORMAT)
-        self.rate = rospy.Rate(10)  # 100Hz main loop
-        
-        # Transmit trigger flags
-        self.transmit_control_flag = False
-        self.transmit_joint_flag = False
-        
-        # Data to be transmitted
-        self.pending_control = ControlMessage()
-        self.pending_joint = JointMessage()
-        
-        # Received data
-        self.received_control = ControlMessage()
-        self.received_joint = JointMessage()
-        
-        # Communication status
-        self.communication_active = False
-        
-        rospy.loginfo("UART Communication Node initialized")
-
     def control_command_callback(self, msg):
         """Process ControlMessage commands from user interface"""
         rospy.loginfo(f"Control command received: comStatus={msg.comStatus}, calibStatus={msg.calibStatus}")
@@ -146,7 +128,7 @@ class CommunicationClass:
         self.transmit_joint_flag = True
 
     def transmit_data(self):
-        """Transmit data when triggered"""
+        """Transmit data when triggered - separate packets for Control and Joint messages"""
         if not self.serial_available:
             # Simulation when serial port is not available
             if self.transmit_control_flag or self.transmit_joint_flag:
@@ -154,20 +136,36 @@ class CommunicationClass:
                 # Simulation: sent data returns as received data
                 if self.transmit_control_flag:
                     self.received_control = self.pending_control
+                    rospy.loginfo("Simulated Structure 1 (Control) transmission")
                 if self.transmit_joint_flag:
                     self.received_joint = self.pending_joint
+                    rospy.loginfo("Simulated Structure 2 (Joint) transmission")
                 
                 self.transmit_control_flag = False
                 self.transmit_joint_flag = False
             return
 
-        # Real serial transmission
-        if self.transmit_control_flag or self.transmit_joint_flag:
-            try:
-                # Create packet (8 bytes)
-                packet_data = struct.pack(TOTAL_FORMAT,
+        # Real serial transmission - separate packets
+        try:
+            # Transmit Structure 1 (ControlMessage) if flagged
+            if self.transmit_control_flag:
+                control_packet = struct.pack(CONTROL_FORMAT,
                     self.pending_control.comStatus,
-                    self.pending_control.calibStatus,
+                    self.pending_control.calibStatus
+                )
+                
+                if self.serialPort is not None:
+                    self.serialPort.write(control_packet)
+                    self.serialPort.flush()
+                    rospy.loginfo(f"Transmitted Structure 1 (Control): {len(control_packet)} bytes to STM32")
+                else:
+                    rospy.logwarn("Serial port is None, cannot transmit Control data")
+                
+                self.transmit_control_flag = False
+
+            # Transmit Structure 2 (JointMessage) if flagged  
+            if self.transmit_joint_flag:
+                joint_packet = struct.pack(JOINT_FORMAT,
                     self.pending_joint.control_bits,
                     self.pending_joint.j1p,
                     self.pending_joint.j1s,
@@ -177,48 +175,58 @@ class CommunicationClass:
                 )
                 
                 if self.serialPort is not None:
-                    self.serialPort.write(packet_data)
+                    self.serialPort.write(joint_packet)
                     self.serialPort.flush()
-                    
-                    rospy.loginfo(f"Transmitted {len(packet_data)} bytes to STM32")
-                    
-                    # Clear flags
-                    self.transmit_control_flag = False
-                    self.transmit_joint_flag = False
+                    rospy.loginfo(f"Transmitted Structure 2 (Joint): {len(joint_packet)} bytes to STM32")
                 else:
-                    rospy.logwarn("Serial port is None, cannot transmit data")
+                    rospy.logwarn("Serial port is None, cannot transmit Joint data")
                 
-            except Exception as e:
-                rospy.logerr(f"Transmit error: {e}")
+                self.transmit_joint_flag = False
+                
+        except Exception as e:
+            rospy.logerr(f"Transmit error: {e}")
 
     def receive_data(self):
-        """Continuously receive data"""
+        """Continuously receive data - separate packets for Control and Joint messages"""
         if not self.serial_available:
             return
 
         try:
-            # Check if data is available
-            if self.serialPort and self.serialPort.in_waiting >= self.packet_size:
-                data = self.serialPort.read(self.packet_size)
+            # Check for incoming data continuously
+            if self.serialPort and self.serialPort.in_waiting > 0:
                 
-                if len(data) == self.packet_size:
-                    # Unpack the packet
-                    unpacked = struct.unpack(TOTAL_FORMAT, data)
+                # Try to receive Structure 1 (ControlMessage - 2 bytes)
+                if self.serialPort.in_waiting >= struct.calcsize(CONTROL_FORMAT):
+                    control_data = self.serialPort.read(struct.calcsize(CONTROL_FORMAT))
                     
-                    # Update ControlMessage
-                    self.received_control.comStatus = unpacked[0]
-                    self.received_control.calibStatus = unpacked[1]
+                    if len(control_data) == struct.calcsize(CONTROL_FORMAT):
+                        # Unpack ControlMessage
+                        unpacked_control = struct.unpack(CONTROL_FORMAT, control_data)
+                        
+                        # Update received control data
+                        self.received_control.comStatus = unpacked_control[0]
+                        self.received_control.calibStatus = unpacked_control[1]
+                        
+                        rospy.logdebug(f"Received Structure 1 (Control): {len(control_data)} bytes from STM32")
+                        
+                # Try to receive Structure 2 (JointMessage - 6 bytes) 
+                if self.serialPort.in_waiting >= struct.calcsize(JOINT_FORMAT):
+                    joint_data = self.serialPort.read(struct.calcsize(JOINT_FORMAT))
                     
-                    # Update JointMessage
-                    self.received_joint.control_bits = unpacked[2]
-                    self.received_joint.j1p = unpacked[3]
-                    self.received_joint.j1s = unpacked[4]
-                    self.received_joint.j2p = unpacked[5]
-                    self.received_joint.j2s = unpacked[6]
-                    self.received_joint.ap = unpacked[7]
-                    
-                    rospy.logdebug(f"Received {len(data)} bytes from STM32")
-                    
+                    if len(joint_data) == struct.calcsize(JOINT_FORMAT):
+                        # Unpack JointMessage
+                        unpacked_joint = struct.unpack(JOINT_FORMAT, joint_data)
+                        
+                        # Update received joint data
+                        self.received_joint.control_bits = unpacked_joint[0]
+                        self.received_joint.j1p = unpacked_joint[1]
+                        self.received_joint.j1s = unpacked_joint[2]
+                        self.received_joint.j2p = unpacked_joint[3]
+                        self.received_joint.j2s = unpacked_joint[4]
+                        self.received_joint.ap = unpacked_joint[5]
+                        
+                        rospy.logdebug(f"Received Structure 2 (Joint): {len(joint_data)} bytes from STM32")
+                        
         except Exception as e:
             rospy.logerr(f"Receive error: {e}")
 
