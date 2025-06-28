@@ -1,5 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+GokHAS Project - Control Handlers Module
+========================================
+
+Copyright (c) 2025 Ahmet Ceyhun Bilir
+Author: Ahmet Ceyhun Bilir <ahmetceyhunbilir16@gmail.com>
+
+This file is part of the GokHAS project, developed as a graduation thesis project.
+
+License: MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+
+Control Handlers Module
+=======================
+
+This module manages interface button functions and system control logic for the
+GokHAS project's graphical user interface.
+"""
 
 import rospy
 from PyQt6.QtWidgets import (
@@ -792,6 +829,10 @@ class ControlHandlers:
             # Update internal state
             self.main_window.manual_mode_active = True
             
+            # Publish autonomous mode deactivation to ROS when resetting to MANUAL
+            if hasattr(self.main_window, 'ros_bridge') and self.main_window.ros_bridge:
+                self.main_window.ros_bridge.publish_autonomous_mode(False)
+            
             # Log message
             self.main_window.add_log_message("Mode reset to MANUAL")
             rospy.loginfo("Mode reset to MANUAL on system deactivation")
@@ -854,12 +895,12 @@ class ControlHandlers:
             self._start_simulation_response()
             rospy.loginfo(f"STM32 Simulation Mode: Auto-response in {ControlHandlersConfig.SIMULATION_RESPONSE_DELAY/1000} seconds")
         else:
-            # Normal timeout timer
+            # Normal timeout timer - button will turn RED if timeout expires
             self.activation_timeout_timer = QTimer()
             self.activation_timeout_timer.setSingleShot(True)
             self.activation_timeout_timer.timeout.connect(self._activation_timeout_callback)
             self.activation_timeout_timer.start(ControlHandlersConfig.ACTIVATION_TIMEOUT)
-            rospy.loginfo(f"Activation timeout started ({ControlHandlersConfig.ACTIVATION_TIMEOUT/1000} seconds)")
+            rospy.loginfo(f"Activation timeout started ({ControlHandlersConfig.ACTIVATION_TIMEOUT/1000} seconds) - waiting for STM32 response")
 
     def _start_simulation_response(self):
         """Simulate STM32 response in simulation mode"""
@@ -998,12 +1039,20 @@ class ControlHandlers:
             # Enable controls in MANUAL mode
             self._set_manual_controls_enabled(True)
             
+            # Publish autonomous mode deactivation to ROS
+            if hasattr(self.main_window, 'ros_bridge') and self.main_window.ros_bridge:
+                self.main_window.ros_bridge.publish_autonomous_mode(False)
+            
         elif button_text == "AUTONOMOUS":
             self.main_window.manual_mode_active = False
             rospy.loginfo("Autonomous mode activated - image clicks disabled")
             
             # Disable controls in AUTONOMOUS mode
             self._set_manual_controls_enabled(False)
+            
+            # Publish autonomous mode activation to ROS
+            if hasattr(self.main_window, 'ros_bridge') and self.main_window.ros_bridge:
+                self.main_window.ros_bridge.publish_autonomous_mode(True)
         
         # Add log message
         self.main_window.add_log_message(f"Mode changed to: {button_text}")
@@ -1463,17 +1512,125 @@ class ControlHandlers:
                     btn.setStyleSheet("")
 
     def handle_image_click(self, click_x, click_y):
-        """Handle left click event on image"""
-        rospy.loginfo(f"Image clicked at coordinates: ({click_x:.1f}, {click_y:.1f})")
-        self.main_window.add_log_message(f"Target selected: ({click_x:.1f}, {click_y:.1f})")
+        """Handle left click event on image - Move robot to clicked coordinates"""
+        # Convert clicked coordinates from scaled display to original image coordinates
+        original_x, original_y = self._convert_display_to_original_coords(click_x, click_y)
+        
+        rospy.loginfo(f"Left click at display ({click_x:.1f}, {click_y:.1f}) → original ({original_x}, {original_y}) - Moving robot")
+        self.main_window.add_log_message(f"Moving to: ({original_x}, {original_y})")
+        
+        # Call 2D to 3D service to get joint angles for clicked coordinates
+        try:
+            # Import service here to avoid circular imports
+            from gokhas_perception.srv import PixelTo3D, PixelTo3DRequest
+            
+            # Wait for service if not available
+            rospy.wait_for_service('pixel_to_3d_angles', timeout=3.0)
+            service_client = rospy.ServiceProxy('pixel_to_3d_angles', PixelTo3D)
+            
+            # Create service request with original image coordinates
+            request = PixelTo3DRequest()
+            request.autonomous = False  # Manual mode
+            request.pixel_x = int(original_x)
+            request.pixel_y = int(original_y)
+            
+            # Call service
+            response = service_client(request)
+            
+            # Check if valid response received
+            if response.joint1degree == 0 and response.joint2degree == 0:
+                rospy.logwarn(f"No valid 3D point found at original coords ({original_x}, {original_y})")
+                self.main_window.add_log_message(f"Target unreachable: No 3D data at ({original_x}, {original_y})")
+                return
+            
+            # Create and send joint command
+            self._send_manual_targeting_command(response.joint1degree, response.joint2degree)
+            
+            rospy.loginfo(f"Manual targeting: J1={response.joint1degree}° J2={response.joint2degree}°")
+            self.main_window.add_log_message(f"Robot moving: J1={response.joint1degree}° J2={response.joint2degree}°")
+            
+        except rospy.ServiceException as e:
+            rospy.logerr(f"2D to 3D service call failed: {e}")
+            self.main_window.add_log_message(f"Service error: {e}")
+        except rospy.ROSException as e:
+            rospy.logerr(f"ROS service timeout: {e}")
+            self.main_window.add_log_message("Service timeout: 2D to 3D service not available")
+        except Exception as e:
+            rospy.logerr(f"Unexpected error in image click: {e}")
+            self.main_window.add_log_message(f"Error: {e}")
 
     def handle_image_trigger(self, target_x, target_y):
-        """Handle right click trigger event on image"""
-        rospy.loginfo(f"Image trigger at coordinates: ({target_x:.1f}, {target_y:.1f})")
-        self.main_window.add_log_message(f"TRIGGERED at: ({target_x:.1f}, {target_y:.1f})")
+        """Handle right click trigger event on image - Fire airsoft"""
+        # Convert coordinates to original image coordinates
+        original_x, original_y = self._convert_display_to_original_coords(target_x, target_y)
         
-        # Here you can publish trigger command to ROS topic
-        # Example: self.main_window.ros_bridge.publish_trigger_command(target_x, target_y)
+        rospy.loginfo(f"Right click trigger at display ({target_x:.1f}, {target_y:.1f}) → original ({original_x}, {original_y}) - Firing airsoft")
+        self.main_window.add_log_message(f"FIRING at: ({original_x}, {original_y})")
+        
+        # Send airsoft trigger command
+        self._send_airsoft_trigger_command()
+
+    def _send_manual_targeting_command(self, joint1_degree, joint2_degree):
+        """Send joint command for manual targeting from image click"""
+        try:
+            from gokhas_communication.msg import JointMessage
+            
+            joint_msg = JointMessage()
+            joint_msg.control_bits = 0  # Initialize control bits
+            
+            # Joint 1 (Horizontal) - Handle sign and value
+            if joint1_degree < 0:
+                joint_msg.control_bits |= 0b00000010  # Set j1p_sign bit (bit 1) for negative
+                joint_msg.j1p = min(abs(joint1_degree), 135)
+            else:
+                joint_msg.j1p = min(joint1_degree, 135)
+            
+            # Joint 2 (Vertical) - Handle sign and value  
+            if joint2_degree < 0:
+                joint_msg.control_bits |= 0b00000100  # Set j2p_sign bit (bit 2) for negative
+                joint_msg.j2p = min(abs(joint2_degree), 135)
+            else:
+                joint_msg.j2p = min(joint2_degree, 135)
+            
+            # Set manual mode speeds
+            joint_msg.j1s = 70  # Faster speed for manual targeting
+            joint_msg.j2s = 70  # Faster speed for manual targeting
+            joint_msg.ap = 0    # No airsoft in movement command
+            
+            # Publish joint command
+            if hasattr(self.main_window, 'ros_bridge') and self.main_window.ros_bridge:
+                self.main_window.ros_bridge.publish_joint_command(joint_msg)
+                rospy.loginfo(f"Manual targeting command sent: j1p={joint_msg.j1p} j2p={joint_msg.j2p} bits={joint_msg.control_bits:08b}")
+            else:
+                rospy.logwarn("ROS bridge not available for joint command")
+                
+        except Exception as e:
+            rospy.logerr(f"Error sending manual targeting command: {e}")
+
+    def _send_airsoft_trigger_command(self):
+        """Send airsoft trigger command (right click)"""
+        try:
+            from gokhas_communication.msg import JointMessage
+            
+            joint_msg = JointMessage()
+            joint_msg.control_bits = 0b00000001  # Set airsoft trigger bit (bit 0)
+            
+            # Keep current joint positions (don't move)
+            joint_msg.j1p = 0
+            joint_msg.j2p = 0
+            joint_msg.j1s = 0  # No movement speed
+            joint_msg.j2s = 0  # No movement speed
+            joint_msg.ap = 100  # Full airsoft power
+            
+            # Publish airsoft command
+            if hasattr(self.main_window, 'ros_bridge') and self.main_window.ros_bridge:
+                self.main_window.ros_bridge.publish_joint_command(joint_msg)
+                rospy.loginfo(f"Airsoft trigger fired: ap={joint_msg.ap} bits={joint_msg.control_bits:08b}")
+            else:
+                rospy.logwarn("ROS bridge not available for airsoft command")
+                
+        except Exception as e:
+            rospy.logerr(f"Error sending airsoft trigger command: {e}")
 
     def _cache_ui_elements(self):
         """Cache UI elements for performance"""
@@ -1587,3 +1744,91 @@ class ControlHandlers:
             self.parent.apply_styles()
         
         rospy.loginfo("Calibration state reset due to timeout - ready for new calibration attempt")
+
+    def _stop_pulse_and_set_waiting(self, btn):
+        """Stop pulse animation and set button to steady yellow (waiting for completion)"""
+        btn_id = id(btn)
+        
+        # Stop pulse animation
+        if btn_id in self.pulse_timers:
+            try:
+                self.pulse_timers[btn_id].stop()
+                del self.pulse_timers[btn_id]
+            except Exception as e:
+                rospy.logwarn(f"Pulse timer stop error: {e}")
+        
+        # Set button to steady yellow (waiting state)
+        if hasattr(btn, 'setStyleSheet'):
+            btn.setObjectName("calibration-waiting")
+            btn.setStyleSheet("""
+                QPushButton#calibration-waiting {
+                    background-color: #ffc107 !important;
+                    color: #212529 !important;
+                    border: 2px solid #e0a800;
+                    border-radius: 8px;
+                    padding: 8px 16px;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+            """)
+            
+        rospy.loginfo("Calibration button set to waiting state (steady yellow)")
+    
+    def _convert_display_to_original_coords(self, display_x, display_y):
+        """Convert display coordinates to original image coordinates (1920x1080)"""
+        try:
+            # Get the image label widget
+            image_label = self.main_window.image_label
+            
+            # Get current pixmap and label sizes
+            pixmap = image_label.pixmap()
+            if not pixmap:
+                rospy.logwarn("No image available for coordinate conversion")
+                return display_x, display_y
+            
+            label_size = image_label.size()
+            pixmap_size = pixmap.size()
+            
+            # Calculate the actual displayed image rectangle within the label
+            # QLabel centers the scaled image, so we need to find the offset
+            label_width = label_size.width()
+            label_height = label_size.height()
+            pixmap_width = pixmap_size.width()
+            pixmap_height = pixmap_size.height()
+            
+            # Calculate the offset of the image within the label (centering)
+            x_offset = max(0, (label_width - pixmap_width) / 2)
+            y_offset = max(0, (label_height - pixmap_height) / 2)
+            
+            # Adjust click coordinates to be relative to the actual image
+            image_x = display_x - x_offset
+            image_y = display_y - y_offset
+            
+            # Clamp to image bounds
+            image_x = max(0, min(image_x, pixmap_width))
+            image_y = max(0, min(image_y, pixmap_height))
+            
+            # Calculate scale factors from displayed size to original (1920x1080)
+            original_width = 1920
+            original_height = 1080
+            
+            scale_x = original_width / pixmap_width if pixmap_width > 0 else 1.0
+            scale_y = original_height / pixmap_height if pixmap_height > 0 else 1.0
+            
+            # Convert to original coordinates
+            original_x = int(image_x * scale_x)
+            original_y = int(image_y * scale_y)
+            
+            # Clamp to original image bounds
+            original_x = max(0, min(original_x, original_width - 1))
+            original_y = max(0, min(original_y, original_height - 1))
+            
+            rospy.logdebug(f"Coord conversion: display({display_x:.1f},{display_y:.1f}) → image({image_x:.1f},{image_y:.1f}) → original({original_x},{original_y})")
+            rospy.logdebug(f"Label size: {label_width}x{label_height}, Pixmap size: {pixmap_width}x{pixmap_height}, Scale: {scale_x:.2f}x{scale_y:.2f}")
+            
+            return original_x, original_y
+            
+        except Exception as e:
+            rospy.logerr(f"Error in coordinate conversion: {e}")
+            # Fallback to original coordinates
+            return int(display_x), int(display_y)
