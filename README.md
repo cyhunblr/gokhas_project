@@ -8,7 +8,7 @@ The GokHAS system features a modern PyQt6-based interface with dual theme suppor
 
 | Light Theme | Dark Theme |
 |-------------|------------|
-| ![Light Theme](docs/images/gui_lighttheme.png) | ![Dark Theme](docs/images/gui_darktheme.png) |
+| ![Light Theme](docs/images/gui_light_theme.png) | ![Dark Theme](docs/images/gui_dark_theme.png) |
 
 *Advanced control interface with real-time camera feed, joint controls, and comprehensive system monitoring*
 
@@ -360,10 +360,10 @@ roslaunch gokhas_interface gokhas_interface.launch
 **GUI Screenshots:**
 
 *Light Theme Interface:*
-![GokHAS Light Theme](docs/images/gui_lightheme.png)
+![GokHAS Light Theme](docs/images/gui_light_theme.png)
 
 *Dark Theme Interface:*
-![GokHAS Dark Theme](docs/images/gui_darktheme.png)
+![GokHAS Dark Theme](docs/images/gui_dark_theme.png)
 
 The interface features a modern, responsive design with real-time camera feed, comprehensive control panels, and dynamic status indicators. The dual-theme system provides optimal visibility in different lighting conditions.
 
