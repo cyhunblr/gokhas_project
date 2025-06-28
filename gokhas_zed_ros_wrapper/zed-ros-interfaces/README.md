@@ -2,6 +2,8 @@
 
 # Stereolabs ZED Camera - ROS Interfaces
 
+> **Note**: This package is integrated into the GokHAS project for ROS interface compatibility. Original package by Stereolabs.
+
 The `zed-ros-interfaces` repository install the `zed_interfaces` ROS package which defines the custom topics, services and actions used by the [ZED ROS Wrapper](https://github.com/stereolabs/zed-ros-wrapper) to interface with ROS.
 
 If you already installed the [ZED ROS Wrapper](https://github.com/stereolabs/zed-ros-wrapper) or you plan to install it on this machine, this package is not required because it is automatically integrated by `zed-ros-wrapper` as a git submodule to satisfy all the required dependencies.

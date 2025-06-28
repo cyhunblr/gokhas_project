@@ -1,6 +1,36 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+GokHAS Project - Main Window Module
+===================================
+
+Copyright (c) 2025 Ahmet Ceyhun Bilir
+Author: Ahmet Ceyhun Bilir <ahmetceyhunbilir16@gmail.com>
+
+This file is part of the GokHAS project, developed as a graduation thesis project.
+
+License: MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+
 Main window module:
 Initializes and manages the GokHAS Central Control Interface.
 """
@@ -76,23 +106,26 @@ class MainWindow(QMainWindow):
 
     def handle_communication(self, control_msg):
         """Process ControlMessage received from STM32 microcontroller"""
-        rospy.loginfo(f"Received ControlMessage: comStatus={control_msg.comStatus}, calibStatus={control_msg.calibStatus}")
+        # rospy.loginfo(f"Received ControlMessage: comStatus={control_msg.comStatus}, calibStatus={control_msg.calibStatus}")
         
-        # Handle calibration status
+        # Handle calibration completion (calibStatus=1 means calibration complete)
         if control_msg.calibStatus == 1:
-            # STM32 confirmed calibration completion
-            rospy.loginfo("STM32 confirmed calibration completion")
+            # STM32 completed calibration - this is the completion signal
+            rospy.loginfo("STM32 calibration completed (calibStatus=1)")
+            self.add_log_message("STM32 calibration completed successfully")
+            
+            # Complete calibration - set button to green
             if (hasattr(self.control_handlers, 'current_calibrating_button') and 
                 self.control_handlers.current_calibrating_button and
                 hasattr(self.control_handlers, 'current_calibrating_all_buttons') and
-                self.control_handlers.current_calibrating_all_buttons):
+                self.control_handlers.current_calibrating_all_buttons and
+                hasattr(self.control_handlers, 'calibration_in_progress') and
+                self.control_handlers.calibration_in_progress):
                 
-                # Complete calibration - set button to green
                 self.control_handlers.finish_calibration(
                     self.control_handlers.current_calibrating_button, 
                     self.control_handlers.current_calibrating_all_buttons
                 )
-                self.add_log_message("Calibration completed by STM32 confirmation")
         
         if control_msg.comStatus:
             # STM32 confirmed communication - set ACTIVATED button to green
@@ -122,6 +155,10 @@ class MainWindow(QMainWindow):
 
     def _create_ui(self):
         """Prepare main UI layout - creates all interface elements"""
+        # Set window title
+        self.setWindowTitle("GokHAS Control Interface")
+        
+        # Set window icon
         self._set_window_icon()
 
         # Central widget and grid layout - main container

@@ -1,6 +1,36 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+GokHAS Project - ROS Bridge Module
+==================================
+
+Copyright (c) 2025 Ahmet Ceyhun Bilir
+Author: Ahmet Ceyhun Bilir <ahmetceyhunbilir16@gmail.com>
+
+This file is part of the GokHAS project, developed as a graduation thesis project.
+
+License: MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+
 ROSBridge Module:
 This module creates a bridge between ROS (Robot Operating System) and PyQt6 GUI.
 It receives YOLOv8 detection images from ROS topics and displays them in the Qt interface.
@@ -23,6 +53,7 @@ from cv_bridge import CvBridge, CvBridgeError  # Convert between ROS and OpenCV 
 from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer  # Qt core components
 from PyQt6.QtGui import QImage, QPixmap                   # Qt image handling
 from gokhas_communication.msg import ControlMessage, JointMessage
+from std_msgs.msg import Bool  # Standard ROS message types
 
 class ROSBridge(QObject):
     """
@@ -104,12 +135,13 @@ class ROSBridge(QObject):
             # Publishers: Send commands from GUI to robot
             self.control_pub = rospy.Publisher('/gokhas/control_commands', ControlMessage, queue_size=1)
             self.joint_pub = rospy.Publisher('/gokhas/joint_commands', JointMessage, queue_size=1)
+            self.autonomous_mode_pub = rospy.Publisher('/gokhas/autonomous_mode', Bool, queue_size=1)
             
             # Subscribers: Receive status updates from robot
             self.control_sub = rospy.Subscriber('/gokhas/control_status', ControlMessage, self.control_status_callback)
             self.joint_sub = rospy.Subscriber('/gokhas/joint_feedback', JointMessage, self.joint_feedback_callback)
             
-            rospy.loginfo("ROSBridge: Control and Joint publishers/subscribers initialized.")
+            rospy.loginfo("ROSBridge: Control, Joint and Autonomous mode publishers/subscribers initialized.")
         except Exception as e:
             rospy.logerr(f"Could not create communication pub/sub: {e}")
             return False
@@ -294,6 +326,24 @@ class ROSBridge(QObject):
         """
         # Publish joint message to robot control system
         self.joint_pub.publish(joint_msg)
+
+    def publish_autonomous_mode(self, enabled):
+        """
+        Send autonomous mode command to targeting system
+        
+        This method publishes autonomous mode activation/deactivation
+        commands from the GUI to the autonomous targeting system.
+        
+        Args:
+            enabled: bool - True to activate autonomous mode, False to deactivate
+        """
+        # Create Bool message for autonomous mode state
+        autonomous_msg = Bool()
+        autonomous_msg.data = enabled
+        
+        # Publish autonomous mode message to targeting system
+        self.autonomous_mode_pub.publish(autonomous_msg)
+        rospy.loginfo(f"Autonomous mode {'ACTIVATED' if enabled else 'DEACTIVATED'}")
 
     def _update_detection_status(self):
         """

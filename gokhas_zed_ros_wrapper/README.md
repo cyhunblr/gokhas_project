@@ -3,6 +3,8 @@
    ROS Noetic Ninjemis Integration
 </h1>
 
+> **Note**: This ZED ROS Wrapper is integrated into the GokHAS project for robotic vision applications. Original package by Stereolabs.
+
 This package lets you use the ZED stereo camera with ROS. It outputs the camera's left and right images, depth map, point cloud, and pose information and supports the use of multiple ZED cameras.
 
 [More information](https://www.stereolabs.com/documentation/guides/using-zed-with-ros/introduction.html)

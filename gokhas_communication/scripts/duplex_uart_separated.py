@@ -1,6 +1,51 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# filepath: /home/cyhunblr/bitirme_ws/src/gokhas_project/gokhas_communication/scripts/uart_com.py
+"""
+GokHAS Project - UART Communication Node
+========================================
+
+Copyright (c) 2025 Ahmet Ceyhun Bilir
+Author: Ahmet Ceyhun Bilir <ahmetceyhunbilir16@gmail.com>
+
+This file is part of the GokHAS project, developed as a graduation thesis project.
+
+License: MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+
+UART Communication Node for GokHAS Project
+==========================================
+
+This script implements UART serial communication between ROS and STM32 microcontroller.
+It handles bidirectional data transfer using separate packet structures for control 
+commands and joint feedback. The system supports both real hardware communication
+and simulation mode when no serial port is available.
+
+Features:
+- Bidirectional UART communication
+- Separate packet structures for control and joint data
+- Hardware simulation when no serial port available
+- ROS parameter configuration
+- Error handling and recovery
+"""
 
 import time
 import rospy
@@ -15,7 +60,11 @@ JOINT_FORMAT = 'BBBBBB'    # JointMessage: 6 bytes
 TOTAL_FORMAT = 'BBBBBBBB'  # Combined: 8 bytes total
 
 class UartConfig:
-    """Configuration class for UART communication parameters"""
+    """
+    Configuration class for UART communication parameters
+    
+    Handles UART configuration loading from ROS parameters
+    """
     
     # Default values
     SERIAL_PORT = '/dev/ttyUSB0'
@@ -25,7 +74,11 @@ class UartConfig:
     
     @classmethod
     def load_config(cls):
-        """Load configuration from ROS parameters"""
+        """
+        Load configuration from ROS parameters
+        
+        Loads UART communication settings from ROS parameter server
+        """
         try:
             # Load STM32 communication parameters
             serial_port_param = rospy.get_param('/stm32/serial_port', '/dev/ttyUSB0')
@@ -48,11 +101,25 @@ class UartConfig:
             rospy.loginfo("Using default UART configuration values")
 
 class CommunicationClass:
+    """
+    Main UART communication class for STM32 interface
+    
+    Handles all serial communication with STM32 microcontroller
+    """
     def __init__(self):
+        """
+        Initialize UART communication node
+        
+        Sets up ROS node, publishers, subscribers and serial communication
+        """
         rospy.init_node('uart_communication_node', anonymous=True)
         
         # Load configuration from ROS parameters
         UartConfig.load_config()
+        
+        # Check simulation mode from ROS parameters
+        self.simulation_mode = rospy.get_param('/stm32/simulation_mode', False)
+        rospy.loginfo(f"STM32 Simulation Mode: {'ENABLED' if self.simulation_mode else 'DISABLED'}")
 
         # Publishers - Publish data received from STM32
         self.control_pub = rospy.Publisher('/gokhas/control_status', ControlMessage, queue_size=1)
@@ -86,10 +153,19 @@ class CommunicationClass:
         # Communication status
         self.communication_active = False
         
+        # Track if we received actual data from STM32
+        self.data_received_from_stm32 = False
+        
         rospy.loginfo("UART Communication Node initialized")
 
     def _setup_serial_port(self):
         """Setup serial port using configuration parameters"""
+        if self.simulation_mode:
+            rospy.loginfo("STM32 Simulation Mode ENABLED - skipping serial port setup")
+            self.serialPort = None
+            self.serial_available = False
+            return
+            
         try:
             self.serialPort = serial.Serial(
                 port=UartConfig.SERIAL_PORT,
@@ -129,16 +205,21 @@ class CommunicationClass:
 
     def transmit_data(self):
         """Transmit data when triggered - separate packets for Control and Joint messages"""
-        if not self.serial_available:
-            # Simulation when serial port is not available
+        if self.simulation_mode or not self.serial_available:
+            # Simulation when explicitly enabled or serial port is not available
             if self.transmit_control_flag or self.transmit_joint_flag:
-                rospy.loginfo("Simulating transmit - no serial port available")
+                if self.simulation_mode:
+                    rospy.loginfo("Simulating transmit - simulation mode enabled")
+                else:
+                    rospy.loginfo("Simulating transmit - no serial port available")
                 # Simulation: sent data returns as received data
                 if self.transmit_control_flag:
                     self.received_control = self.pending_control
+                    self.data_received_from_stm32 = True  # Mark simulation data as received
                     rospy.loginfo("Simulated Structure 1 (Control) transmission")
                 if self.transmit_joint_flag:
                     self.received_joint = self.pending_joint
+                    self.data_received_from_stm32 = True  # Mark simulation data as received
                     rospy.loginfo("Simulated Structure 2 (Joint) transmission")
                 
                 self.transmit_control_flag = False
@@ -188,7 +269,7 @@ class CommunicationClass:
 
     def receive_data(self):
         """Continuously receive data - separate packets for Control and Joint messages"""
-        if not self.serial_available:
+        if self.simulation_mode or not self.serial_available:
             return
 
         try:
@@ -206,6 +287,9 @@ class CommunicationClass:
                         # Update received control data
                         self.received_control.comStatus = unpacked_control[0]
                         self.received_control.calibStatus = unpacked_control[1]
+                        
+                        # Mark that we received actual data from STM32
+                        self.data_received_from_stm32 = True
                         
                         rospy.logdebug(f"Received Structure 1 (Control): {len(control_data)} bytes from STM32")
                         
@@ -225,20 +309,27 @@ class CommunicationClass:
                         self.received_joint.j2s = unpacked_joint[4]
                         self.received_joint.ap = unpacked_joint[5]
                         
+                        # Mark that we received actual data from STM32
+                        self.data_received_from_stm32 = True
+                        
                         rospy.logdebug(f"Received Structure 2 (Joint): {len(joint_data)} bytes from STM32")
                         
         except Exception as e:
             rospy.logerr(f"Receive error: {e}")
 
     def publish_status(self):
-        """Publish current status"""
-        # Publish control status
-        self.control_pub.publish(self.received_control)
+        """Publish current status only if we received data from STM32"""
+        # Only publish if we have received actual data from STM32
+        if self.data_received_from_stm32:
+            # Publish control status
+            self.control_pub.publish(self.received_control)
+            
+            # Publish joint feedback
+            self.joint_pub.publish(self.received_joint)
+            
+            rospy.logdebug("Published STM32 data to topics")
         
-        # Publish joint feedback
-        self.joint_pub.publish(self.received_joint)
-        
-        # Publish communication status
+        # Always publish communication status (independent of STM32 data)
         com_status = Bool()
         com_status.data = self.communication_active and (self.received_control.comStatus == 1)
         self.com_status_pub.publish(com_status)

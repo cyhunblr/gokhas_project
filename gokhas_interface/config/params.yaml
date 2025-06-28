@@ -5,7 +5,7 @@
 stm32:
   # Simulation mode - if true, STM32 responses are simulated
   # if false, real hardware communication is used
-  simulation_mode: false
+  simulation_mode: true
   
   # Serial port for real STM32 communication
   # Used only when simulation_mode is false
@@ -13,7 +13,7 @@ stm32:
   serial_port: "/dev/ttyUSB0"
   
   # Serial communication parameters
-  baud_rate: 9600
+  baud_rate: 115200
   timeout: 1.0
 
 # System Parameters
@@ -25,7 +25,8 @@ system:
   calibration_duration: 5000
   
   # Calibration timeout - maximum time to wait for STM32 response
-  calibration_timeout: 15000
+  # Increased to accommodate variable motor calibration times in sec
+  calibration_timeout: 60000
   
   # Simulation response delay in milliseconds
   simulation_response_delay: 1000
@@ -48,4 +49,4 @@ logging:
   level: "INFO"
   
   # Enable/disable terminal output
-  console_output: true
+  console_output: false

@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="gokhas_communication" type="duplex_uart_combined.py" name="communication_node" output="screen"/>
+</launch>
